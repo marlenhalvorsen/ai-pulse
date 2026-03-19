@@ -1,5 +1,21 @@
 # AI Pulse
 
+> ⚠️ **Under active development.** This project is being built in public using Claude Code. Expect breaking changes.
+
+> **What the AI world is talking about right now.**
+
+---
+
+## About this project
+
+AI Pulse is two things at once.
+
+The first is a product — a free platform that surfaces what the AI community is actually talking about right now, across podcasts, videos, articles, newsletters and discussions, ranked by real social momentum from Reddit and HackerNews.
+
+The second is an experiment. My other projects are built by me. This one is an exploration of agentic coding — where Claude Code writes the code, and I stay at the wheel. I define the architecture, review every pull request, and decide what gets merged. Claude Code implements. The goal is to find out what that collaboration actually feels like in practice, and whether the result holds up.
+
+Built in public. Human in the loop.
+
 > **What the AI world is talking about right now.**
 
 AI Pulse is a free, open, read-only web platform that surfaces trending AI content across every major format — podcasts, videos, articles, newsletters, and research papers — driven by real social signals from Reddit and HackerNews.
