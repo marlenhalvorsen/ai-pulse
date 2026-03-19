@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+
+# .NET
+*.user
+*.suo
+.vs/
+
+# Claude
+.claude/
