@@ -55,7 +55,17 @@ public class UrlClassifierTests
         _sut.Classify(url).Should().Be(ContentType.Newsletter);
     }
 
-    // --- Discussion (self-post / null / empty) ---
+    // --- Discussion (Reddit comments / self-post / null / empty) ---
+
+    [Theory]
+    [InlineData("https://www.reddit.com/r/MachineLearning/comments/abc123/some_title/")]
+    [InlineData("https://reddit.com/r/artificial/comments/xyz789/another_post/")]
+    [InlineData("https://old.reddit.com/r/ChatGPT/comments/def456/title/")]
+    [InlineData("https://www.reddit.com/r/LocalLLaMA/comments/ghi012/")]
+    public void Classify_RedditCommentsUrl_ReturnsDiscussion(string url)
+    {
+        _sut.Classify(url).Should().Be(ContentType.Discussion);
+    }
 
     [Theory]
     [InlineData(null)]
