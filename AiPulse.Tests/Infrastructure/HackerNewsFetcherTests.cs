@@ -206,6 +206,43 @@ public class HackerNewsFetcherTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Theory]
+    [InlineData("How to train your dragon")]
+    [InlineData("Best hiking trails in Spain")]
+    [InlineData("Explained: rain patterns in Brazil")]
+    public async Task FetchAsync_AiKeyword_DoesNotMatchEmbeddedInOtherWords(string nonAiTitle)
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[99]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/99")) return OkJson($$"""{"id":99,"title":"{{nonAiTitle}}","url":"https://example.com","score":100,"descendants":5,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["ai"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().BeEmpty($"'{nonAiTitle}' should not match standalone keyword 'ai'");
+    }
+
+    [Fact]
+    public async Task FetchAsync_MultiWordKeyword_MatchesTitleContainingPhrase()
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[100]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/100")) return OkJson("""{"id":100,"title":"Claude Code now supports MCP","url":"https://example.com","score":400,"descendants":30,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["claude code"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().ContainSingle(i => i.Title == "Claude Code now supports MCP");
+    }
+
     private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
         : HttpMessageHandler
     {

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using AiPulse.Application.Interfaces;
 using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
@@ -94,7 +95,7 @@ public class HackerNewsFetcher : ITrendFetcher
 
     private bool IsAiRelated(string title) =>
         _settings.AiKeywords.Any(kw =>
-            title.Contains(kw, StringComparison.OrdinalIgnoreCase));
+            Regex.IsMatch(title, $@"\b{Regex.Escape(kw)}\b", RegexOptions.IgnoreCase));
 
     // ── Deserialization types ──────────────────────────────────────────────
 
