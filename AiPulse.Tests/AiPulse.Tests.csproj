@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AiPulse.Domain\AiPulse.Domain.csproj" />
     <ProjectReference Include="..\AiPulse.Application\AiPulse.Application.csproj" />
+    <ProjectReference Include="..\AiPulse.Infrastructure\AiPulse.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
