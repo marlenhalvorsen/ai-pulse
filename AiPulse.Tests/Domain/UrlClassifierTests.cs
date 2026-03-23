@@ -58,6 +58,13 @@ public class UrlClassifierTests
     // --- Discussion (Reddit comments / self-post / null / empty) ---
 
     [Theory]
+    [InlineData("https://news.ycombinator.com/item?id=12345")]
+    public void Classify_HackerNewsItemUrl_ReturnsDiscussion(string url)
+    {
+        _sut.Classify(url).Should().Be(ContentType.Discussion);
+    }
+
+    [Theory]
     [InlineData("https://www.reddit.com/r/MachineLearning/comments/abc123/some_title/")]
     [InlineData("https://reddit.com/r/artificial/comments/xyz789/another_post/")]
     [InlineData("https://old.reddit.com/r/ChatGPT/comments/def456/title/")]

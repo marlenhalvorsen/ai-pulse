@@ -36,6 +36,10 @@ public class UrlClassifier
         if (host.EndsWith(".substack.com") || host.EndsWith(".beehiiv.com"))
             return ContentType.Newsletter;
 
+        // Discussion — HackerNews items
+        if (host is "news.ycombinator.com" && path.StartsWith("/item"))
+            return ContentType.Discussion;
+
         // Discussion — Reddit comment threads
         if ((host is "www.reddit.com" or "reddit.com" || host.EndsWith(".reddit.com"))
             && System.Text.RegularExpressions.Regex.IsMatch(path, @"^/r/[^/]+/comments/"))
