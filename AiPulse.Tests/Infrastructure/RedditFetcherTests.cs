@@ -1,0 +1,185 @@
+using System.Net;
+using AiPulse.Application.Services;
+using AiPulse.Domain.Enums;
+using AiPulse.Infrastructure.Configuration;
+using AiPulse.Infrastructure.Fetchers;
+using FluentAssertions;
+using Microsoft.Extensions.Options;
+
+namespace AiPulse.Tests.Infrastructure;
+
+public class RedditFetcherTests
+{
+    private const string SinglePostJson = """
+        {
+          "data": {
+            "children": [
+              {
+                "kind": "t3",
+                "data": {
+                  "id": "abc123",
+                  "title": "GPT-5 drops today",
+                  "url": "https://www.youtube.com/watch?v=testid",
+                  "score": 1200,
+                  "num_comments": 88,
+                  "created_utc": 1742000000.0,
+                  "subreddit": "MachineLearning"
+                }
+              }
+            ]
+          }
+        }
+        """;
+
+    private const string SelfPostJson = """
+        {
+          "data": {
+            "children": [
+              {
+                "kind": "t3",
+                "data": {
+                  "id": "xyz789",
+                  "title": "Weekly discussion thread",
+                  "url": "https://www.reddit.com/r/MachineLearning/comments/xyz789/weekly_thread",
+                  "score": 300,
+                  "num_comments": 45,
+                  "created_utc": 1742000000.0,
+                  "subreddit": "MachineLearning"
+                }
+              }
+            ]
+          }
+        }
+        """;
+
+    private static RedditFetcher CreateFetcher(
+        Func<HttpRequestMessage, HttpResponseMessage> handler,
+        string[]? subreddits = null)
+    {
+        var settings = new RedditSettings
+        {
+            Subreddits = subreddits ?? ["MachineLearning"],
+            BaseUrl = "https://www.reddit.com",
+            PostsPerSubreddit = 25,
+            UserAgent = "test:ai-pulse:v0"
+        };
+
+        var httpClient = new HttpClient(new FakeHttpMessageHandler(handler))
+        {
+            BaseAddress = new Uri(settings.BaseUrl)
+        };
+
+        var factory = new StubHttpClientFactory(httpClient);
+        return new RedditFetcher(factory, Options.Create(settings), new UrlClassifier());
+    }
+
+    [Fact]
+    public async Task FetchAsync_ParsesPostFields()
+    {
+        var sut = CreateFetcher(_ => OkJson(SinglePostJson));
+
+        var items = (await sut.FetchAsync()).ToList();
+
+        items.Should().HaveCount(1);
+        var item = items[0];
+        item.Id.Should().Be("reddit_abc123");
+        item.Title.Should().Be("GPT-5 drops today");
+        item.Url.Should().Be("https://www.youtube.com/watch?v=testid");
+        item.Upvotes.Should().Be(1200);
+        item.CommentCount.Should().Be(88);
+        item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
+    }
+
+    [Fact]
+    public async Task FetchAsync_SetsSourceTypeToReddit()
+    {
+        var sut = CreateFetcher(_ => OkJson(SinglePostJson));
+
+        var items = await sut.FetchAsync();
+
+        items.Should().AllSatisfy(i => i.Source.Should().Be(SourceType.Reddit));
+    }
+
+    [Fact]
+    public async Task FetchAsync_UsesUrlClassifierToSetContentType()
+    {
+        var sut = CreateFetcher(_ => OkJson(SinglePostJson));
+
+        var items = await sut.FetchAsync();
+
+        items.Single().ContentType.Should().Be(ContentType.Video);
+    }
+
+    [Fact]
+    public async Task FetchAsync_SelfPostUrl_ClassifiedAsDiscussion()
+    {
+        var sut = CreateFetcher(_ => OkJson(SelfPostJson));
+
+        var items = await sut.FetchAsync();
+
+        items.Single().ContentType.Should().Be(ContentType.Discussion);
+    }
+
+    [Fact]
+    public async Task FetchAsync_FetchesAllConfiguredSubreddits()
+    {
+        var requestedUrls = new List<string>();
+        var sut = CreateFetcher(req =>
+        {
+            requestedUrls.Add(req.RequestUri!.PathAndQuery);
+            return OkJson(SinglePostJson);
+        }, subreddits: ["MachineLearning", "artificial", "ChatGPT"]);
+
+        var items = (await sut.FetchAsync()).ToList();
+
+        requestedUrls.Should().HaveCount(3);
+        requestedUrls.Should().Contain(s => s.Contains("MachineLearning"));
+        requestedUrls.Should().Contain(s => s.Contains("artificial"));
+        requestedUrls.Should().Contain(s => s.Contains("ChatGPT"));
+        items.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task FetchAsync_WhenHttpReturnsError_ThrowsHttpRequestException()
+    {
+        var sut = CreateFetcher(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+
+        var act = async () => await sut.FetchAsync();
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task FetchAsync_RespectsCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var sut = CreateFetcher(_ => OkJson(SinglePostJson));
+
+        var act = async () => await sut.FetchAsync(cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private static HttpResponseMessage OkJson(string json) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+
+    private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(handler(request));
+        }
+    }
+
+    private sealed class StubHttpClientFactory(HttpClient client) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => client;
+    }
+}

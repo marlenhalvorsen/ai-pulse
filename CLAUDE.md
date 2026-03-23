@@ -18,7 +18,7 @@ Tech stack: C# .NET 8 · Blazor Server · SQLite · Hangfire · xUnit. See SPEC.
 
 **SOLID + DRY.** One class, one job. All dependencies injected via constructor. No hardcoded values — use appsettings.json. See SPEC.md section 3 for details.
 
-**Do not need to ask permission** to run `dotnet build` or `dotnet test`. Run these automatically.
+**Do not ask permission** to run any dotnet commands (dotnet build, dotnet test, dotnet add, dotnet new etc). Run these automatically.
 
 ---
 
