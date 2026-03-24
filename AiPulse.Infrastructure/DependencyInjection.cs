@@ -7,6 +7,7 @@ using AiPulse.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace AiPulse.Infrastructure;
 
@@ -29,8 +30,18 @@ public static class DependencyInjection
         services.Configure<RedditSettings>(configuration.GetSection("Reddit"));
         services.Configure<HackerNewsSettings>(configuration.GetSection("HackerNews"));
 
-        services.AddHttpClient<RedditFetcher>();
-        services.AddHttpClient<HackerNewsFetcher>();
+        services.AddHttpClient("Reddit", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<RedditSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
+        });
+
+        services.AddHttpClient("HackerNews", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<HackerNewsSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl);
+        });
 
         services.AddScoped<ITrendFetcher, RedditFetcher>();
         services.AddScoped<ITrendFetcher, HackerNewsFetcher>();
