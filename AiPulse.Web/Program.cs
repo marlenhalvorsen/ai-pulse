@@ -44,6 +44,16 @@ app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrendRefresh
     job => job.ExecuteAsync(CancellationToken.None),
     "*/30 * * * *");
 
+// TODO: remove before production — triggers an immediate fetch on startup for dev/testing
+if (app.Environment.IsDevelopment())
+{
+    _ = Task.Run(async () =>
+    {
+        using var scope = app.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<TrendRefreshJob>().ExecuteAsync();
+    });
+}
+
 app.Run();
 
 public partial class Program { }
