@@ -1,7 +1,58 @@
 @page "/"
+@using AiPulse.Application.DTOs
+@using AiPulse.Application.UseCases
+@using AiPulse.Web.Components
+@inject GetTrendingItemsQuery TrendingQuery
 
-<PageTitle>AI Pulse</PageTitle>
+<PageTitle>AI Pulse — What the AI world is talking about right now</PageTitle>
 
-<h1>AI Pulse</h1>
+<header class="site-header">
+    <h1>AI Pulse</h1>
+    <p class="site-header__tagline">What the AI world is talking about right now</p>
+</header>
 
-<p>What the AI world is talking about right now.</p>
+@if (_loading)
+{
+    <p class="loading">Loading trending content…</p>
+}
+else if (_error is not null)
+{
+    <p class="error">Could not load trending content. Please try again later.</p>
+}
+else
+{
+    <main class="trending-feed">
+        @foreach (var row in _rows)
+        {
+            <TrendingRow Row="row" />
+        }
+    </main>
+}
+
+@code {
+    private static readonly string[] RowOrder =
+        ["Podcast", "Video", "Article", "Newsletter", "ResearchPaper", "Discussion"];
+
+    private IEnumerable<TrendingRowDto> _rows = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await TrendingQuery.ExecuteAsync();
+            _rows = response.Rows
+                .OrderBy(r => Array.IndexOf(RowOrder, r.ContentType))
+                .ToList();
+        }
+        catch (Exception)
+        {
+            _error = "Failed to load";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
