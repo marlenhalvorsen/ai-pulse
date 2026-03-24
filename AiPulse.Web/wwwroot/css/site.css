@@ -1,11 +1,173 @@
-/* Blazor error UI — required for server-side error handling */
+/* ── Reset & base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f0f13;
+    color: #e2e2e8;
+    line-height: 1.5;
+}
+
+a { color: #7eb8f7; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Layout ───────────────────────────────────────────────── */
+.layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.layout__content {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* ── Nav ──────────────────────────────────────────────────── */
+.navbar-dark {
+    background: #1a1a24;
+    border-bottom: 1px solid #2e2e3e;
+}
+
+.navbar-brand {
+    color: #7eb8f7;
+    font-weight: 700;
+    font-size: 1.2rem;
+    padding: 0.75rem 0;
+}
+
+.navbar-toggler {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #e2e2e8;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+}
+
+.nav-link { color: #b0b0c0; padding: 0.5rem 0; display: block; }
+.nav-link:hover, .nav-link.active { color: #7eb8f7; text-decoration: none; }
+
+@media (min-width: 640px) {
+    .layout { flex-direction: row; }
+
+    .navbar-dark {
+        width: 200px;
+        min-height: 100vh;
+        flex-direction: column;
+        display: flex;
+        border-bottom: none;
+        border-right: 1px solid #2e2e3e;
+    }
+
+    .container-fluid { flex-direction: column; align-items: flex-start; }
+    .navbar-toggler { display: none; }
+    .collapse { display: block !important; }
+
+    .layout__content { padding: 2rem; }
+}
+
+/* ── Site header ──────────────────────────────────────────── */
+.site-header { margin-bottom: 2.5rem; }
+
+.site-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+}
+
+.site-header__tagline { color: #7a7a90; margin-top: 0.25rem; }
+
+/* ── Trending rows ────────────────────────────────────────── */
+.trending-feed { display: flex; flex-direction: column; gap: 2.5rem; }
+
+.trending-row h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #7eb8f7;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #2e2e3e;
+}
+
+.trending-row__cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .trending-row__cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+    .trending-row__cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Trending card ────────────────────────────────────────── */
+.trending-card {
+    background: #1a1a24;
+    border: 1px solid #2e2e3e;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color 0.15s;
+}
+
+.trending-card:hover { border-color: #7eb8f7; }
+
+.trending-card a {
+    font-weight: 600;
+    color: #e2e2e8;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.trending-card a:hover { color: #7eb8f7; text-decoration: none; }
+
+.trending-card__meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #7a7a90;
+}
+
+.trending-card__score {
+    background: #2e2e3e;
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-weight: 600;
+    color: #b0b0c0;
+}
+
+.trending-card__stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.78rem;
+    color: #7a7a90;
+}
+
+/* ── States ───────────────────────────────────────────────── */
+.loading, .error { color: #7a7a90; padding: 2rem 0; }
+
+/* ── Blazor error UI ──────────────────────────────────────── */
 #blazor-error-ui {
-    background: lightyellow;
+    background: #2a1a1a;
+    border-top: 1px solid #7b2020;
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    color: #e2e2e8;
     display: none;
     left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    padding: 0.6rem 1.25rem;
     position: fixed;
     width: 100%;
     z-index: 1000;
