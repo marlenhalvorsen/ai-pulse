@@ -161,6 +161,22 @@ public class RedditFetcherTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Fact]
+    public void UserAgent_DefaultValue_IsFullyPreservedAfterParseAdd()
+    {
+        // ParseAdd silently truncates at the first invalid character.
+        // "web:ai-pulse:v1.0 ..." — the colon after "web" is not a valid token char
+        // so only "web" would be kept, meaning Reddit never sees the full identifier.
+        var settings = new RedditSettings();
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
+
+        client.DefaultRequestHeaders.UserAgent.ToString()
+            .Should().Contain("ai-pulse",
+                "the full User-Agent must reach Reddit so our app is identifiable; " +
+                "colons in the product token cause silent truncation");
+    }
+
     private static HttpResponseMessage OkJson(string json) =>
         new(HttpStatusCode.OK)
         {
