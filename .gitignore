@@ -7,6 +7,10 @@ obj/
 *.suo
 .vs/
 
+# Local secrets — never commit environment-specific overrides
+appsettings.Development.json
+appsettings.Local.json
+
 # SQLite database files (runtime content cache, not source-controlled)
 *.db
 *.db-shm
