@@ -1,5 +1,4 @@
 using System.Net;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Infrastructure.Configuration;
 using AiPulse.Infrastructure.Fetchers;
@@ -29,8 +28,7 @@ public class HackerNewsFetcherTests
 
         return new HackerNewsFetcher(
             new StubHttpClientFactory(httpClient),
-            Options.Create(settings),
-            new UrlClassifier());
+            Options.Create(settings));
     }
 
     private static HttpResponseMessage OkJson(string json) =>
@@ -132,7 +130,8 @@ public class HackerNewsFetcherTests
 
         item.Id.Should().Be("hn_42");
         item.Title.Should().Be("LLM reasoning paper");
-        item.Url.Should().Be("https://arxiv.org/abs/42");
+        item.Url.Should().Be("https://news.ycombinator.com/item?id=42",
+            "HN items must always link to the HN thread, not the external article");
         item.Upvotes.Should().Be(950);
         item.CommentCount.Should().Be(77);
         item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
@@ -168,8 +167,10 @@ public class HackerNewsFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_UsesUrlClassifierToSetContentType()
+    public async Task FetchAsync_AllItemsClassifiedAsDiscussion()
     {
+        // External URLs (YouTube, arxiv, etc.) must not affect classification —
+        // the value of an HN item is the discussion thread, not the raw link.
         var sut = CreateFetcher(req =>
         {
             var path = req.RequestUri!.PathAndQuery;
@@ -181,7 +182,8 @@ public class HackerNewsFetcherTests
 
         var item = (await sut.FetchAsync()).Single();
 
-        item.ContentType.Should().Be(ContentType.Video);
+        item.ContentType.Should().Be(ContentType.Discussion);
+        item.Url.Should().Be("https://news.ycombinator.com/item?id=8");
     }
 
     [Fact]
@@ -263,6 +265,43 @@ public class HackerNewsFetcherTests
 
         items.Should().ContainSingle(i => i.Title == title,
             $"title '{title}' should match plural keyword '{keyword}'");
+    }
+
+    [Theory]
+    [InlineData("Community diaspora after Reddit API changes")]
+    [InlineData("Pandora's box opened by AI researchers")]
+    public async Task FetchAsync_SoraKeyword_DoesNotMatchEmbeddedInLongerWords(string nonSoraTitle)
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[102]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/102")) return OkJson($$"""{"id":102,"title":"{{nonSoraTitle}}","url":"https://example.com","score":100,"descendants":5,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["sora"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().BeEmpty($"'{nonSoraTitle}' should not match standalone keyword 'sora'");
+    }
+
+    [Fact]
+    public async Task FetchAsync_SoraKeyword_MatchesStandaloneTitle()
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[103]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/103")) return OkJson("""{"id":103,"title":"Sora: OpenAI's video generation model","url":"https://openai.com/sora","score":900,"descendants":200,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["sora"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().ContainSingle(i => i.Title.Contains("Sora"),
+            "standalone 'Sora' must match the keyword");
     }
 
     private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)

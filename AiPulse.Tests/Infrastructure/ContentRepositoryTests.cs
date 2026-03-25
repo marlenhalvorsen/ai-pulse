@@ -87,7 +87,7 @@ public class ContentRepositoryTests : IDisposable
             MakeItem("high", ContentType.Article,  upvotes: 1000, comments: 50, postedAt: now)
         ]);
 
-        var results = (await _repository.GetTrendingAsync(null, 10, TimeSpan.FromDays(7))).ToList();
+        var results = (await _repository.GetTrendingAsync(null, null, 10, TimeSpan.FromDays(7))).ToList();
 
         results[0].Id.Should().Be("high");
         results[1].Id.Should().Be("low");
@@ -104,7 +104,7 @@ public class ContentRepositoryTests : IDisposable
             MakeItem("article-2", ContentType.Article,    postedAt: now)
         ]);
 
-        var results = await _repository.GetTrendingAsync(ContentType.Article, 10, TimeSpan.FromDays(7));
+        var results = await _repository.GetTrendingAsync(ContentType.Article, null, 10, TimeSpan.FromDays(7));
 
         results.Should().HaveCount(2);
         results.Should().OnlyContain(i => i.ContentType == ContentType.Article);
@@ -121,7 +121,7 @@ public class ContentRepositoryTests : IDisposable
             MakeItem("c", ContentType.Article, postedAt: now)
         ]);
 
-        var results = await _repository.GetTrendingAsync(null, 2, TimeSpan.FromDays(7));
+        var results = await _repository.GetTrendingAsync(null, null, 2, TimeSpan.FromDays(7));
 
         results.Should().HaveCount(2);
     }
@@ -136,7 +136,7 @@ public class ContentRepositoryTests : IDisposable
             MakeItem("old",    ContentType.Article, postedAt: now.AddDays(-8))
         ]);
 
-        var results = await _repository.GetTrendingAsync(null, 10, TimeSpan.FromDays(7));
+        var results = await _repository.GetTrendingAsync(null, null, 10, TimeSpan.FromDays(7));
 
         results.Should().HaveCount(1);
         results.Single().Id.Should().Be("recent");
@@ -152,10 +152,27 @@ public class ContentRepositoryTests : IDisposable
             MakeItem("stale", ContentType.Article, upvotes: 500, postedAt: now.AddDays(-7))
         ]);
 
-        var results = await _repository.GetTrendingAsync(null, 10, TimeSpan.FromDays(7));
+        var results = await _repository.GetTrendingAsync(null, null, 10, TimeSpan.FromDays(7));
 
         results.Should().HaveCount(1);
         results.Single().Id.Should().Be("good");
+    }
+
+    [Fact]
+    public async Task GetTrendingAsync_WithSourceFilter_ReturnsOnlyMatchingSource()
+    {
+        var now = DateTime.UtcNow;
+        await _repository.UpsertAsync(
+        [
+            MakeItem("reddit-1", ContentType.Discussion, source: SourceType.Reddit,      postedAt: now),
+            MakeItem("hn-1",     ContentType.Discussion, source: SourceType.HackerNews,  postedAt: now),
+            MakeItem("hn-2",     ContentType.Discussion, source: SourceType.HackerNews,  postedAt: now)
+        ]);
+
+        var results = await _repository.GetTrendingAsync(ContentType.Discussion, SourceType.HackerNews, 10, TimeSpan.FromDays(7));
+
+        results.Should().HaveCount(2);
+        results.Should().OnlyContain(i => i.Source == SourceType.HackerNews);
     }
 
     private static ContentItem MakeItem(
@@ -163,13 +180,14 @@ public class ContentRepositoryTests : IDisposable
         ContentType contentType,
         int upvotes = 100,
         int comments = 10,
-        DateTime? postedAt = null) =>
+        DateTime? postedAt = null,
+        SourceType source = SourceType.Reddit) =>
         new()
         {
             Id = id,
             Title = $"Title for {id}",
             Url = $"https://example.com/{id}",
-            Source = SourceType.Reddit,
+            Source = source,
             ContentType = contentType,
             Upvotes = upvotes,
             CommentCount = comments,

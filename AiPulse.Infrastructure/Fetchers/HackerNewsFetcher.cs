@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using AiPulse.Application.Interfaces;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Domain.Models;
 using AiPulse.Infrastructure.Configuration;
@@ -19,16 +18,13 @@ public class HackerNewsFetcher : ITrendFetcher
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly HackerNewsSettings _settings;
-    private readonly UrlClassifier _urlClassifier;
 
     public HackerNewsFetcher(
         IHttpClientFactory httpClientFactory,
-        IOptions<HackerNewsSettings> settings,
-        UrlClassifier urlClassifier)
+        IOptions<HackerNewsSettings> settings)
     {
         _httpClientFactory = httpClientFactory;
         _settings = settings.Value;
-        _urlClassifier = urlClassifier;
     }
 
     public async Task<IEnumerable<ContentItem>> FetchAsync(CancellationToken cancellationToken = default)
@@ -79,17 +75,15 @@ public class HackerNewsFetcher : ITrendFetcher
         if (post is null || post.Type != "story" || string.IsNullOrWhiteSpace(post.Title))
             return null;
 
-        var url = string.IsNullOrWhiteSpace(post.Url)
-            ? $"https://news.ycombinator.com/item?id={post.Id}"
-            : post.Url;
+        var hnUrl = $"https://news.ycombinator.com/item?id={post.Id}";
 
         return new ContentItem
         {
             Id = $"hn_{post.Id}",
             Title = post.Title,
-            Url = url,
+            Url = hnUrl,
             Source = SourceType.HackerNews,
-            ContentType = _urlClassifier.Classify(url),
+            ContentType = ContentType.Discussion,
             Upvotes = post.Score,
             CommentCount = post.Descendants,
             PostedAt = DateTimeOffset.FromUnixTimeSeconds(post.Time).UtcDateTime

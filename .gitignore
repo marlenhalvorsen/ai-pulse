@@ -7,5 +7,10 @@ obj/
 *.suo
 .vs/
 
+# SQLite database files (runtime content cache, not source-controlled)
+*.db
+*.db-shm
+*.db-wal
+
 # Claude
 .claude/

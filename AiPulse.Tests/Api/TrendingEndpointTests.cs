@@ -22,10 +22,11 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
 
     private HttpClient CreateClient(IEnumerable<ContentItem>? items = null)
     {
-        var trendingItems = items ?? [MakeItem("item-1", ContentType.Article)];
+        var trendingItems = items ?? [MakeItem("item-1", ContentType.Discussion, SourceType.Reddit)];
         var mock = new Mock<ITrendingQuery>();
         mock.Setup(q => q.GetTrendingAsync(
                 It.IsAny<ContentType?>(),
+                It.IsAny<SourceType?>(),
                 It.IsAny<int>(),
                 It.IsAny<TimeSpan>(),
                 It.IsAny<CancellationToken>()))
@@ -58,14 +59,14 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
-    public async Task GetTrending_RowsGroupedByContentType()
+    public async Task GetTrending_DiscussionItemsGroupedBySource()
     {
         var mock = new Mock<ITrendingQuery>();
-        mock.Setup(q => q.GetTrendingAsync(ContentType.Article, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([MakeItem("a1", ContentType.Article), MakeItem("a2", ContentType.Article)]);
-        mock.Setup(q => q.GetTrendingAsync(ContentType.Video, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([MakeItem("v1", ContentType.Video)]);
-        mock.Setup(q => q.GetTrendingAsync(It.IsNotIn(ContentType.Article, ContentType.Video), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+        mock.Setup(q => q.GetTrendingAsync(ContentType.Discussion, SourceType.Reddit, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([MakeItem("r1", ContentType.Discussion, SourceType.Reddit), MakeItem("r2", ContentType.Discussion, SourceType.Reddit)]);
+        mock.Setup(q => q.GetTrendingAsync(ContentType.Discussion, SourceType.HackerNews, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([MakeItem("h1", ContentType.Discussion, SourceType.HackerNews)]);
+        mock.Setup(q => q.GetTrendingAsync(It.Is<ContentType>(ct => ct != ContentType.Discussion), It.IsAny<SourceType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var client = _factory.WithWebHostBuilder(b =>
@@ -76,8 +77,10 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
         var rows = json.GetProperty("rows").EnumerateArray().ToList();
 
         rows.Should().HaveCount(2);
-        var articleRow = rows.Single(r => r.GetProperty("contentType").GetString() == "Article");
-        articleRow.GetProperty("items").GetArrayLength().Should().Be(2);
+        var redditRow = rows.Single(r => r.GetProperty("contentType").GetString() == "Reddit");
+        redditRow.GetProperty("items").GetArrayLength().Should().Be(2);
+        var hnRow = rows.Single(r => r.GetProperty("contentType").GetString() == "HackerNews");
+        hnRow.GetProperty("items").GetArrayLength().Should().Be(1);
     }
 
     [Fact]
@@ -85,7 +88,7 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     {
         var mock = new Mock<ITrendingQuery>();
         mock.Setup(q => q.GetTrendingAsync(
-                It.IsAny<ContentType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+                It.IsAny<ContentType?>(), It.IsAny<SourceType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var client = _factory.WithWebHostBuilder(b =>
@@ -94,10 +97,10 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
 
         await client.GetAsync("/api/trending?limit=999");
 
-        // One call per ContentType, each capped at 50
+        // 5 non-Discussion ContentTypes + 2 Discussion source calls (Reddit + HN) = ContentType.Length + 1
         mock.Verify(q => q.GetTrendingAsync(
-            It.IsAny<ContentType>(), 50, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(Enum.GetValues<ContentType>().Length));
+            It.IsAny<ContentType>(), It.IsAny<SourceType?>(), 50, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(Enum.GetValues<ContentType>().Length + 1));
     }
 
     [Fact]
@@ -105,7 +108,7 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     {
         var mock = new Mock<ITrendingQuery>();
         mock.Setup(q => q.GetTrendingAsync(
-                It.IsAny<ContentType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+                It.IsAny<ContentType?>(), It.IsAny<SourceType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var client = _factory.WithWebHostBuilder(b =>
@@ -114,10 +117,9 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
 
         await client.GetAsync("/api/trending?window=day");
 
-        // One call per ContentType, all using the 24-hour window
         mock.Verify(q => q.GetTrendingAsync(
-            It.IsAny<ContentType>(), It.IsAny<int>(), TimeSpan.FromHours(24), It.IsAny<CancellationToken>()),
-            Times.Exactly(Enum.GetValues<ContentType>().Length));
+            It.IsAny<ContentType>(), It.IsAny<SourceType?>(), It.IsAny<int>(), TimeSpan.FromHours(24), It.IsAny<CancellationToken>()),
+            Times.Exactly(Enum.GetValues<ContentType>().Length + 1));
     }
 
     [Fact]
@@ -148,13 +150,40 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
         response.Headers.Contains("Server").Should().BeFalse();
     }
 
-    private static ContentItem MakeItem(string id, ContentType contentType) =>
+    [Fact]
+    public async Task GetTrending_RedditLinkPost_ShowsDomainAsSourceName()
+    {
+        var linkPostItem = new ContentItem
+        {
+            Id = "reddit_link1",
+            Title = "Some external article",
+            Url = "https://www.reddit.com/r/MachineLearning/comments/link1/some_article/",
+            ExternalUrl = "https://theguardian.com/tech/ai-article",
+            Source = SourceType.Reddit,
+            ContentType = ContentType.Discussion,
+            Upvotes = 500,
+            CommentCount = 50,
+            PostedAt = DateTime.UtcNow
+        };
+
+        var client = CreateClient([linkPostItem]);
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/trending");
+        var rows = json.GetProperty("rows").EnumerateArray().ToList();
+        var item = rows
+            .SelectMany(r => r.GetProperty("items").EnumerateArray())
+            .First(i => i.GetProperty("id").GetString() == "reddit_link1");
+
+        item.GetProperty("sourceName").GetString().Should().Be("theguardian.com",
+            "Reddit link posts should show the external article domain, not 'Reddit'");
+    }
+
+    private static ContentItem MakeItem(string id, ContentType contentType, SourceType source = SourceType.Reddit) =>
         new()
         {
             Id = id,
             Title = $"Title {id}",
             Url = $"https://example.com/{id}",
-            Source = SourceType.Reddit,
+            Source = source,
             ContentType = contentType,
             Upvotes = 100,
             CommentCount = 10,

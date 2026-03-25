@@ -1,5 +1,4 @@
 using System.Net;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Infrastructure.Configuration;
 using AiPulse.Infrastructure.Fetchers;
@@ -10,6 +9,7 @@ namespace AiPulse.Tests.Infrastructure;
 
 public class RedditFetcherTests
 {
+    // Link post: external URL, is_self=false
     private const string SinglePostJson = """
         {
           "data": {
@@ -21,6 +21,7 @@ public class RedditFetcherTests
                   "title": "GPT-5 drops today",
                   "url": "https://www.youtube.com/watch?v=testid",
                   "permalink": "/r/MachineLearning/comments/abc123/gpt_5_drops_today/",
+                  "is_self": false,
                   "score": 1200,
                   "num_comments": 88,
                   "created_utc": 1742000000.0,
@@ -32,6 +33,7 @@ public class RedditFetcherTests
         }
         """;
 
+    // Self post: no external URL, is_self=true
     private const string SelfPostJson = """
         {
           "data": {
@@ -43,6 +45,7 @@ public class RedditFetcherTests
                   "title": "Weekly discussion thread",
                   "url": "https://www.reddit.com/r/MachineLearning/comments/xyz789/weekly_thread",
                   "permalink": "/r/MachineLearning/comments/xyz789/weekly_thread/",
+                  "is_self": true,
                   "score": 300,
                   "num_comments": 45,
                   "created_utc": 1742000000.0,
@@ -72,7 +75,7 @@ public class RedditFetcherTests
         };
 
         var factory = new StubHttpClientFactory(httpClient);
-        return new RedditFetcher(factory, Options.Create(settings), new UrlClassifier());
+        return new RedditFetcher(factory, Options.Create(settings));
     }
 
     [Fact]
@@ -86,7 +89,11 @@ public class RedditFetcherTests
         var item = items[0];
         item.Id.Should().Be("reddit_abc123");
         item.Title.Should().Be("GPT-5 drops today");
-        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/abc123/gpt_5_drops_today/");
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/abc123/gpt_5_drops_today/",
+            "all Reddit posts must link to the Reddit thread, never the external article");
+        item.ExternalUrl.Should().Be("https://www.youtube.com/watch?v=testid",
+            "link posts must preserve the external URL for source-name display");
+        item.ContentType.Should().Be(ContentType.Discussion);
         item.Upvotes.Should().Be(1200);
         item.CommentCount.Should().Be(88);
         item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
@@ -103,27 +110,29 @@ public class RedditFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_AlwaysUsesRedditPermalinkUrl_SoAllPostsClassifyAsDiscussion()
+    public async Task FetchAsync_SelfPost_UsesPermalinkAndClassifiesAsDiscussion()
     {
-        // The external "url" field (e.g. a YouTube link) must be ignored for
-        // classification; the Reddit permalink makes every post a Discussion.
-        var sut = CreateFetcher(_ => OkJson(SinglePostJson));
+        var sut = CreateFetcher(_ => OkJson(SelfPostJson));
 
-        var items = await sut.FetchAsync();
+        var item = (await sut.FetchAsync()).Single();
 
-        items.Single().Url.Should().StartWith("https://www.reddit.com/r/");
-        items.Single().ContentType.Should().Be(ContentType.Discussion);
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/xyz789/weekly_thread/",
+            "self-posts must link to the Reddit thread");
+        item.ContentType.Should().Be(ContentType.Discussion);
+        item.ExternalUrl.Should().BeNull("self-posts have no external article to link to");
     }
 
     [Fact]
-    public async Task FetchAsync_UsesPermalink_NotExternalUrl()
+    public async Task FetchAsync_LinkPost_UsesPermalinkAndStoresExternalUrl()
     {
+        // is_self=false — must always use permalink as the thread URL and store the external URL separately
         var json = """
             {"data":{"children":[{"kind":"t3","data":{
               "id":"p1","title":"Some paper","score":500,"num_comments":20,
               "created_utc":1742000000.0,
               "url":"https://arxiv.org/abs/2401.00001",
-              "permalink":"/r/MachineLearning/comments/p1/some_paper/"
+              "permalink":"/r/MachineLearning/comments/p1/some_paper/",
+              "is_self":false
             }}]}}
             """;
         var sut = CreateFetcher(_ => OkJson(json));
@@ -131,7 +140,9 @@ public class RedditFetcherTests
         var item = (await sut.FetchAsync()).Single();
 
         item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/p1/some_paper/",
-            "permalink must be used so arxiv/YouTube link posts are not misclassified");
+            "link posts must still link to the Reddit thread");
+        item.ExternalUrl.Should().Be("https://arxiv.org/abs/2401.00001",
+            "external URL must be preserved so the source domain can be displayed");
         item.ContentType.Should().Be(ContentType.Discussion);
     }
 
