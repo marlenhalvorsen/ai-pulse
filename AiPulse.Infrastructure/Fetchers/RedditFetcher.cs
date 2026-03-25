@@ -64,7 +64,7 @@ public class RedditFetcher : ITrendFetcher
     private ContentItem MapToContentItem(RedditPost post)
     {
         var threadUrl = $"https://www.reddit.com{post.Permalink}";
-        var externalUrl = post.IsSelf ? null : post.Url;
+        var externalUrl = post.IsSelf || IsRedditHostedMedia(post.Url) ? null : post.Url;
 
         return new()
         {
@@ -79,6 +79,11 @@ public class RedditFetcher : ITrendFetcher
             PostedAt = DateTimeOffset.FromUnixTimeSeconds((long)post.CreatedUtc).UtcDateTime
         };
     }
+
+    private static bool IsRedditHostedMedia(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+        (uri.Host.Equals("i.redd.it", StringComparison.OrdinalIgnoreCase) ||
+         uri.Host.Equals("v.redd.it", StringComparison.OrdinalIgnoreCase));
 
     // ── Deserialization types ──────────────────────────────────────────────
 

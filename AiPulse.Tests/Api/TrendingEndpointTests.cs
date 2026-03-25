@@ -5,17 +5,32 @@ using AiPulse.Application.Interfaces;
 using AiPulse.Domain.Enums;
 using AiPulse.Domain.Models;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
 namespace AiPulse.Tests.Api;
 
-public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    // Provides a test token so ValidateOnStart does not throw in the test host.
+    public class ApiFactory : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.ConfigureAppConfiguration((_, cfg) =>
+                cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ProductHunt:DeveloperToken"] = "test-token"
+                }));
+        }
+    }
 
-    public TrendingEndpointTests(WebApplicationFactory<Program> factory)
+    private readonly ApiFactory _factory;
+
+    public TrendingEndpointTests(ApiFactory factory)
     {
         _factory = factory;
     }

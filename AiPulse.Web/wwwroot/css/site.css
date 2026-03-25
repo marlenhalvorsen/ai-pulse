@@ -156,6 +156,23 @@ a:hover { text-decoration: underline; }
     color: #7a7a90;
 }
 
+/* ── Source badge ─────────────────────────────────────────── */
+.source-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: #2e2e3e;
+    color: #b0b0c0;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.source-badge--reddit      { background: #ff4500; color: #fff; }
+.source-badge--hackernews  { background: #ff6600; color: #fff; }
+.source-badge--producthunt { background: #da552f; color: #fff; }
+
 /* ── States ───────────────────────────────────────────────── */
 .loading, .error { color: #7a7a90; padding: 2rem 0; }
 

@@ -18,11 +18,15 @@
 
     private string Heading => Row.ContentType switch
     {
+        "Reddit"       => "🔴 Reddit",
+        "HackerNews"   => "🟠 Hacker News",
+        "ProductHunt"  => "🐱 Product Hunt",
         "Video"        => "Videos",
         "Podcast"      => "Podcasts",
         "Article"      => "Articles",
         "Newsletter"   => "Newsletters",
         "ResearchPaper"=> "Research",
+        "Tool"         => "Tools",
         "Discussion"   => "Discussions",
         _              => Row.ContentType
     };

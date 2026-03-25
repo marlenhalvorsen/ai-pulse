@@ -3,7 +3,7 @@
 <div class="trending-card">
     <a href="@Item.Url" target="_blank" rel="noopener noreferrer">@Item.Title</a>
     <div class="trending-card__meta">
-        <span class="trending-card__source">@Item.SourceName</span>
+        <span class="@BadgeClass">@Item.SourceName</span>
         <span class="trending-card__score" title="Trend score">@((int)Item.TrendScore)</span>
     </div>
     <div class="trending-card__stats">
@@ -14,4 +14,12 @@
 
 @code {
     [Parameter, EditorRequired] public TrendingItemDto Item { get; set; } = null!;
+
+    private string BadgeClass => Item.SourceName switch
+    {
+        "Reddit"      => "source-badge source-badge--reddit",
+        "HackerNews"  => "source-badge source-badge--hackernews",
+        "ProductHunt" => "source-badge source-badge--producthunt",
+        _             => "source-badge"
+    };
 }
