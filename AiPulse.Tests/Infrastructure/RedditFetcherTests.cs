@@ -156,6 +156,25 @@ public class RedditFetcherTests
         items.Single().ContentType.Should().Be(ContentType.Discussion);
     }
 
+    [Theory]
+    [InlineData("https://i.redd.it/abc123.jpg")]
+    [InlineData("https://v.redd.it/xyz456")]
+    public async Task FetchAsync_RedditHostedMedia_UsesPermalinkAndNullExternalUrl(string mediaUrl)
+    {
+        var sut = CreateFetcher(_ => OkJson(RedditHostedMediaJson(mediaUrl)));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/media1/check_out_this_ai_art/",
+            "Reddit-hosted media must link to the thread, not the raw media URL");
+        item.ExternalUrl.Should().BeNull(
+            "i.redd.it/v.redd.it are Reddit's own CDN — source badge must show 'Reddit', not the CDN domain");
+        item.ContentType.Should().Be(ContentType.Discussion);
+    }
+
+    private static string RedditHostedMediaJson(string mediaUrl) =>
+        $$$"""{"data":{"children":[{"kind":"t3","data":{"id":"media1","title":"Check out this AI art","score":800,"num_comments":60,"created_utc":1742000000.0,"url":"{{{mediaUrl}}}","permalink":"/r/MachineLearning/comments/media1/check_out_this_ai_art/","is_self":false}}]}}""";
+
     [Fact]
     public async Task FetchAsync_FetchesAllConfiguredSubreddits()
     {
