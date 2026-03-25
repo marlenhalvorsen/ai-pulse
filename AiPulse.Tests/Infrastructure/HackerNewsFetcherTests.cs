@@ -267,6 +267,43 @@ public class HackerNewsFetcherTests
             $"title '{title}' should match plural keyword '{keyword}'");
     }
 
+    [Theory]
+    [InlineData("Community diaspora after Reddit API changes")]
+    [InlineData("Pandora's box opened by AI researchers")]
+    public async Task FetchAsync_SoraKeyword_DoesNotMatchEmbeddedInLongerWords(string nonSoraTitle)
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[102]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/102")) return OkJson($$"""{"id":102,"title":"{{nonSoraTitle}}","url":"https://example.com","score":100,"descendants":5,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["sora"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().BeEmpty($"'{nonSoraTitle}' should not match standalone keyword 'sora'");
+    }
+
+    [Fact]
+    public async Task FetchAsync_SoraKeyword_MatchesStandaloneTitle()
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[103]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/103")) return OkJson("""{"id":103,"title":"Sora: OpenAI's video generation model","url":"https://openai.com/sora","score":900,"descendants":200,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: ["sora"]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().ContainSingle(i => i.Title.Contains("Sora"),
+            "standalone 'Sora' must match the keyword");
+    }
+
     private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
         : HttpMessageHandler
     {
