@@ -29,7 +29,21 @@ public class GetTrendingItemsQuery
         var clampedLimit = Math.Clamp(limit, 1, MaxLimit);
         var timeWindow = window == "day" ? TimeSpan.FromHours(24) : TimeSpan.FromDays(7);
 
-        var items = await _query.GetTrendingAsync(type, clampedLimit, timeWindow, cancellationToken);
+        IEnumerable<ContentItem> items;
+        if (type.HasValue)
+        {
+            items = await _query.GetTrendingAsync(type, clampedLimit, timeWindow, cancellationToken);
+        }
+        else
+        {
+            var allItems = new List<ContentItem>();
+            foreach (var ct in Enum.GetValues<ContentType>())
+            {
+                var typeItems = await _query.GetTrendingAsync(ct, clampedLimit, timeWindow, cancellationToken);
+                allItems.AddRange(typeItems);
+            }
+            items = allItems;
+        }
 
         var rows = items
             .Select(i => MapToDto(i))

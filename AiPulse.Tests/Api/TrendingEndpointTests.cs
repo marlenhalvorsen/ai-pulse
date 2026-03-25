@@ -60,13 +60,17 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     [Fact]
     public async Task GetTrending_RowsGroupedByContentType()
     {
-        var items = new[]
-        {
-            MakeItem("a1", ContentType.Article),
-            MakeItem("v1", ContentType.Video),
-            MakeItem("a2", ContentType.Article)
-        };
-        var client = CreateClient(items);
+        var mock = new Mock<ITrendingQuery>();
+        mock.Setup(q => q.GetTrendingAsync(ContentType.Article, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([MakeItem("a1", ContentType.Article), MakeItem("a2", ContentType.Article)]);
+        mock.Setup(q => q.GetTrendingAsync(ContentType.Video, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([MakeItem("v1", ContentType.Video)]);
+        mock.Setup(q => q.GetTrendingAsync(It.IsNotIn(ContentType.Article, ContentType.Video), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var client = _factory.WithWebHostBuilder(b =>
+            b.ConfigureServices(s => s.AddSingleton(mock.Object)))
+            .CreateClient();
 
         var json = await client.GetFromJsonAsync<JsonElement>("/api/trending");
         var rows = json.GetProperty("rows").EnumerateArray().ToList();
@@ -81,7 +85,7 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     {
         var mock = new Mock<ITrendingQuery>();
         mock.Setup(q => q.GetTrendingAsync(
-                null, 50, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+                It.IsAny<ContentType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var client = _factory.WithWebHostBuilder(b =>
@@ -90,7 +94,10 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
 
         await client.GetAsync("/api/trending?limit=999");
 
-        mock.Verify(q => q.GetTrendingAsync(null, 50, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
+        // One call per ContentType, each capped at 50
+        mock.Verify(q => q.GetTrendingAsync(
+            It.IsAny<ContentType>(), 50, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(Enum.GetValues<ContentType>().Length));
     }
 
     [Fact]
@@ -98,7 +105,7 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
     {
         var mock = new Mock<ITrendingQuery>();
         mock.Setup(q => q.GetTrendingAsync(
-                null, It.IsAny<int>(), TimeSpan.FromHours(24), It.IsAny<CancellationToken>()))
+                It.IsAny<ContentType?>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var client = _factory.WithWebHostBuilder(b =>
@@ -107,7 +114,10 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
 
         await client.GetAsync("/api/trending?window=day");
 
-        mock.Verify(q => q.GetTrendingAsync(null, It.IsAny<int>(), TimeSpan.FromHours(24), It.IsAny<CancellationToken>()), Times.Once);
+        // One call per ContentType, all using the 24-hour window
+        mock.Verify(q => q.GetTrendingAsync(
+            It.IsAny<ContentType>(), It.IsAny<int>(), TimeSpan.FromHours(24), It.IsAny<CancellationToken>()),
+            Times.Exactly(Enum.GetValues<ContentType>().Length));
     }
 
     [Fact]

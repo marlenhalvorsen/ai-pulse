@@ -20,6 +20,7 @@ public class RedditFetcherTests
                   "id": "abc123",
                   "title": "GPT-5 drops today",
                   "url": "https://www.youtube.com/watch?v=testid",
+                  "permalink": "/r/MachineLearning/comments/abc123/gpt_5_drops_today/",
                   "score": 1200,
                   "num_comments": 88,
                   "created_utc": 1742000000.0,
@@ -41,6 +42,7 @@ public class RedditFetcherTests
                   "id": "xyz789",
                   "title": "Weekly discussion thread",
                   "url": "https://www.reddit.com/r/MachineLearning/comments/xyz789/weekly_thread",
+                  "permalink": "/r/MachineLearning/comments/xyz789/weekly_thread/",
                   "score": 300,
                   "num_comments": 45,
                   "created_utc": 1742000000.0,
@@ -84,7 +86,7 @@ public class RedditFetcherTests
         var item = items[0];
         item.Id.Should().Be("reddit_abc123");
         item.Title.Should().Be("GPT-5 drops today");
-        item.Url.Should().Be("https://www.youtube.com/watch?v=testid");
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/abc123/gpt_5_drops_today/");
         item.Upvotes.Should().Be(1200);
         item.CommentCount.Should().Be(88);
         item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
@@ -101,13 +103,36 @@ public class RedditFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_UsesUrlClassifierToSetContentType()
+    public async Task FetchAsync_AlwaysUsesRedditPermalinkUrl_SoAllPostsClassifyAsDiscussion()
     {
+        // The external "url" field (e.g. a YouTube link) must be ignored for
+        // classification; the Reddit permalink makes every post a Discussion.
         var sut = CreateFetcher(_ => OkJson(SinglePostJson));
 
         var items = await sut.FetchAsync();
 
-        items.Single().ContentType.Should().Be(ContentType.Video);
+        items.Single().Url.Should().StartWith("https://www.reddit.com/r/");
+        items.Single().ContentType.Should().Be(ContentType.Discussion);
+    }
+
+    [Fact]
+    public async Task FetchAsync_UsesPermalink_NotExternalUrl()
+    {
+        var json = """
+            {"data":{"children":[{"kind":"t3","data":{
+              "id":"p1","title":"Some paper","score":500,"num_comments":20,
+              "created_utc":1742000000.0,
+              "url":"https://arxiv.org/abs/2401.00001",
+              "permalink":"/r/MachineLearning/comments/p1/some_paper/"
+            }}]}}
+            """;
+        var sut = CreateFetcher(_ => OkJson(json));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/p1/some_paper/",
+            "permalink must be used so arxiv/YouTube link posts are not misclassified");
+        item.ContentType.Should().Be(ContentType.Discussion);
     }
 
     [Fact]

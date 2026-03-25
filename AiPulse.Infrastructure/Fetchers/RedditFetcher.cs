@@ -65,17 +65,24 @@ public class RedditFetcher : ITrendFetcher
             .Select(c => MapToContentItem(c.Data!));
     }
 
-    private ContentItem MapToContentItem(RedditPost post) => new()
+    private ContentItem MapToContentItem(RedditPost post)
     {
-        Id = $"reddit_{post.Id}",
-        Title = post.Title,
-        Url = post.Url,
-        Source = SourceType.Reddit,
-        ContentType = _urlClassifier.Classify(post.Url),
-        Upvotes = post.Score,
-        CommentCount = post.NumComments,
-        PostedAt = DateTimeOffset.FromUnixTimeSeconds((long)post.CreatedUtc).UtcDateTime
-    };
+        var url = !string.IsNullOrEmpty(post.Permalink)
+            ? $"https://www.reddit.com{post.Permalink}"
+            : post.Url;
+
+        return new()
+        {
+            Id = $"reddit_{post.Id}",
+            Title = post.Title,
+            Url = url,
+            Source = SourceType.Reddit,
+            ContentType = _urlClassifier.Classify(url),
+            Upvotes = post.Score,
+            CommentCount = post.NumComments,
+            PostedAt = DateTimeOffset.FromUnixTimeSeconds((long)post.CreatedUtc).UtcDateTime
+        };
+    }
 
     // ── Deserialization types ──────────────────────────────────────────────
 
@@ -99,6 +106,7 @@ public class RedditFetcher : ITrendFetcher
         public string Id { get; init; } = string.Empty;
         public string Title { get; init; } = string.Empty;
         public string Url { get; init; } = string.Empty;
+        public string Permalink { get; init; } = string.Empty;
         public int Score { get; init; }
 
         [JsonPropertyName("num_comments")]
