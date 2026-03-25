@@ -19,6 +19,7 @@ public class ProductHuntFetcherTests
                   "node": {
                     "id": "123456",
                     "name": "AI Tool X",
+                    "slug": "ai-tool-x",
                     "tagline": "The best AI tool ever",
                     "website": "https://aitoolx.com",
                     "votesCount": 500,
@@ -65,7 +66,8 @@ public class ProductHuntFetcherTests
 
         item.Id.Should().Be("ph_123456");
         item.Title.Should().Be("AI Tool X");
-        item.Url.Should().Be("https://aitoolx.com");
+        item.Url.Should().Be("https://www.producthunt.com/posts/ai-tool-x",
+            "Product Hunt items must link to the PH discussion page, not the external product website");
         item.Upvotes.Should().Be(500);
         item.CommentCount.Should().Be(42);
         item.PostedAt.Should().Be(DateTime.Parse("2025-03-25T00:00:00.000Z").ToUniversalTime());

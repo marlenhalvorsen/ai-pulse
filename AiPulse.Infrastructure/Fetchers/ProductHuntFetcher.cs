@@ -34,7 +34,7 @@ public class ProductHuntFetcher : ITrendFetcher
         var today = DateTime.UtcNow.Date.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
         var graphql = $$"""
-            { "query": "{ posts(order: VOTES, first: {{_settings.PostLimit}}, postedAfter: \"{{today}}\") { edges { node { id name tagline website votesCount commentsCount createdAt } } } }" }
+            { "query": "{ posts(order: VOTES, first: {{_settings.PostLimit}}, postedAfter: \"{{today}}\") { edges { node { id name slug tagline website votesCount commentsCount createdAt } } } }" }
             """;
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/v2/api/graphql")
@@ -59,7 +59,7 @@ public class ProductHuntFetcher : ITrendFetcher
     {
         Id = $"ph_{post.Id}",
         Title = post.Name,
-        Url = post.Website,
+        Url = $"https://www.producthunt.com/posts/{post.Slug}",
         Source = SourceType.ProductHunt,
         ContentType = ContentType.Tool,
         Upvotes = post.VotesCount,
@@ -93,6 +93,7 @@ public class ProductHuntFetcher : ITrendFetcher
     {
         public string Id { get; init; } = string.Empty;
         public string Name { get; init; } = string.Empty;
+        public string Slug { get; init; } = string.Empty;
         public string Tagline { get; init; } = string.Empty;
         public string Website { get; init; } = string.Empty;
 
