@@ -5,6 +5,7 @@ using AiPulse.Domain.Models;
 using AiPulse.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AiPulse.Tests.Infrastructure;
 
@@ -23,7 +24,7 @@ public class ContentRepositoryTests : IDisposable
         _db.Database.OpenConnection();
         _db.Database.EnsureCreated();
 
-        _repository = new ContentRepository(_db, new TrendScoreCalculator());
+        _repository = new ContentRepository(_db, new TrendScoreCalculator(), NullLogger<ContentRepository>.Instance);
     }
 
     public void Dispose()

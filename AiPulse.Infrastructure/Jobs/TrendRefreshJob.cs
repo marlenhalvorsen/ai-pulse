@@ -25,7 +25,10 @@ public class TrendRefreshJob
         {
             try
             {
-                var items = await fetcher.FetchAsync(cancellationToken);
+                var items = (await fetcher.FetchAsync(cancellationToken)).ToList();
+                _logger.LogInformation("DEBUG {Fetcher} returned {Count} items (post keyword-filter)", fetcher.GetType().Name, items.Count);
+
+                _logger.LogInformation("DEBUG calling UpsertAsync for {Fetcher}", fetcher.GetType().Name);
                 await _repository.UpsertAsync(items, cancellationToken);
             }
             catch (Exception ex)
