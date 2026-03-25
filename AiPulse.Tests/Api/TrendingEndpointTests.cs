@@ -148,6 +148,32 @@ public class TrendingEndpointTests : IClassFixture<WebApplicationFactory<Program
         response.Headers.Contains("Server").Should().BeFalse();
     }
 
+    [Fact]
+    public async Task GetTrending_RedditLinkPost_ShowsDomainAsSourceName()
+    {
+        var linkPostItem = new ContentItem
+        {
+            Id = "reddit_link1",
+            Title = "Some external article",
+            Url = "https://theguardian.com/tech/ai-article",
+            Source = SourceType.Reddit,
+            ContentType = ContentType.Article,
+            Upvotes = 500,
+            CommentCount = 50,
+            PostedAt = DateTime.UtcNow
+        };
+
+        var client = CreateClient([linkPostItem]);
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/trending");
+        var rows = json.GetProperty("rows").EnumerateArray().ToList();
+        var item = rows
+            .SelectMany(r => r.GetProperty("items").EnumerateArray())
+            .First(i => i.GetProperty("id").GetString() == "reddit_link1");
+
+        item.GetProperty("sourceName").GetString().Should().Be("theguardian.com",
+            "Reddit link posts should show the external article domain, not 'Reddit'");
+    }
+
     private static ContentItem MakeItem(string id, ContentType contentType) =>
         new()
         {

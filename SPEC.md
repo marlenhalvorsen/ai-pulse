@@ -129,6 +129,7 @@ AiPulse/
 - Structured logging with Serilog (file sink only)
 - Health check endpoint: `GET /health`
 - OpenAPI / Swagger docs auto-generated
+- Additional content sources: Dev.to, Lobste.rs, GitHub Trending, Product Hunt, Arxiv (essential for comprehensive AI aggregation)
 
 ### 🟡 Could Have
 

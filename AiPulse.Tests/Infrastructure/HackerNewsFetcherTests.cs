@@ -1,5 +1,4 @@
 using System.Net;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Infrastructure.Configuration;
 using AiPulse.Infrastructure.Fetchers;
@@ -29,8 +28,7 @@ public class HackerNewsFetcherTests
 
         return new HackerNewsFetcher(
             new StubHttpClientFactory(httpClient),
-            Options.Create(settings),
-            new UrlClassifier());
+            Options.Create(settings));
     }
 
     private static HttpResponseMessage OkJson(string json) =>
@@ -132,7 +130,8 @@ public class HackerNewsFetcherTests
 
         item.Id.Should().Be("hn_42");
         item.Title.Should().Be("LLM reasoning paper");
-        item.Url.Should().Be("https://arxiv.org/abs/42");
+        item.Url.Should().Be("https://news.ycombinator.com/item?id=42",
+            "HN items must always link to the HN thread, not the external article");
         item.Upvotes.Should().Be(950);
         item.CommentCount.Should().Be(77);
         item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
@@ -168,8 +167,10 @@ public class HackerNewsFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_UsesUrlClassifierToSetContentType()
+    public async Task FetchAsync_AllItemsClassifiedAsDiscussion()
     {
+        // External URLs (YouTube, arxiv, etc.) must not affect classification —
+        // the value of an HN item is the discussion thread, not the raw link.
         var sut = CreateFetcher(req =>
         {
             var path = req.RequestUri!.PathAndQuery;
@@ -181,7 +182,8 @@ public class HackerNewsFetcherTests
 
         var item = (await sut.FetchAsync()).Single();
 
-        item.ContentType.Should().Be(ContentType.Video);
+        item.ContentType.Should().Be(ContentType.Discussion);
+        item.Url.Should().Be("https://news.ycombinator.com/item?id=8");
     }
 
     [Fact]

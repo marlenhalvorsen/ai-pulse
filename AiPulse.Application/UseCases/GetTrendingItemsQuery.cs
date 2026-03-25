@@ -65,11 +65,25 @@ public class GetTrendingItemsQuery
             item.PostedAt,
             item.ContentType.ToString());
 
-    private static string FormatSourceName(ContentItem item) =>
-        item.Source switch
+    private static string FormatSourceName(ContentItem item)
+    {
+        if (item.Source == SourceType.Reddit && item.ContentType != ContentType.Discussion)
+            return ExtractDomain(item.Url);
+
+        return item.Source switch
         {
             SourceType.Reddit => "Reddit",
             SourceType.HackerNews => "HackerNews",
             _ => item.Source.ToString()
         };
+    }
+
+    private static string ExtractDomain(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                ? uri.Host[4..]
+                : uri.Host;
+        return url;
+    }
 }

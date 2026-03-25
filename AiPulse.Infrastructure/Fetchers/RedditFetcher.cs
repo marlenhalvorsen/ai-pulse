@@ -67,9 +67,19 @@ public class RedditFetcher : ITrendFetcher
 
     private ContentItem MapToContentItem(RedditPost post)
     {
-        var url = !string.IsNullOrEmpty(post.Permalink)
-            ? $"https://www.reddit.com{post.Permalink}"
-            : post.Url;
+        string url;
+        ContentType contentType;
+
+        if (post.IsSelf)
+        {
+            url = $"https://www.reddit.com{post.Permalink}";
+            contentType = ContentType.Discussion;
+        }
+        else
+        {
+            url = post.Url;
+            contentType = _urlClassifier.Classify(url);
+        }
 
         return new()
         {
@@ -77,7 +87,7 @@ public class RedditFetcher : ITrendFetcher
             Title = post.Title,
             Url = url,
             Source = SourceType.Reddit,
-            ContentType = _urlClassifier.Classify(url),
+            ContentType = contentType,
             Upvotes = post.Score,
             CommentCount = post.NumComments,
             PostedAt = DateTimeOffset.FromUnixTimeSeconds((long)post.CreatedUtc).UtcDateTime
@@ -108,6 +118,9 @@ public class RedditFetcher : ITrendFetcher
         public string Url { get; init; } = string.Empty;
         public string Permalink { get; init; } = string.Empty;
         public int Score { get; init; }
+
+        [JsonPropertyName("is_self")]
+        public bool IsSelf { get; init; }
 
         [JsonPropertyName("num_comments")]
         public int NumComments { get; init; }
