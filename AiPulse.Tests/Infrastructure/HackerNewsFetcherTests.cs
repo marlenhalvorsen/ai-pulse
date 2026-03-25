@@ -243,6 +243,28 @@ public class HackerNewsFetcherTests
         items.Should().ContainSingle(i => i.Title == "Claude Code now supports MCP");
     }
 
+    [Theory]
+    [InlineData("LLMs are eating the world", "llm")]
+    [InlineData("GPTs dominate reasoning benchmarks", "gpt")]
+    [InlineData("AIs replacing junior devs", "ai")]
+    [InlineData("The best LLM-based tools of 2025", "llm")]
+    public async Task FetchAsync_PluralKeyword_MatchesTitleContainingPluralForm(string title, string keyword)
+    {
+        var sut = CreateFetcher(req =>
+        {
+            var path = req.RequestUri!.PathAndQuery;
+            if (path.Contains("topstories")) return OkJson("[101]");
+            if (path.Contains("beststories")) return OkJson("[]");
+            if (path.Contains("/item/101")) return OkJson($$"""{"id":101,"title":"{{title}}","url":"https://example.com","score":500,"descendants":20,"time":1742000000,"type":"story"}""");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        }, keywords: [keyword]);
+
+        var items = await sut.FetchAsync();
+
+        items.Should().ContainSingle(i => i.Title == title,
+            $"title '{title}' should match plural keyword '{keyword}'");
+    }
+
     private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
         : HttpMessageHandler
     {

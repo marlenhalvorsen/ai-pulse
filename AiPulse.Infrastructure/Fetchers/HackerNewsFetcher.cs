@@ -40,14 +40,17 @@ public class HackerNewsFetcher : ITrendFetcher
         var topIds = await FetchStoryIdsAsync(client, "topstories", cancellationToken);
         var bestIds = await FetchStoryIdsAsync(client, "beststories", cancellationToken);
 
-        var allIds = topIds.Union(bestIds).Take(_settings.StoryLimit);
+        var allIds = topIds.Union(bestIds).Take(_settings.StoryLimit).ToList();
 
         var items = new List<ContentItem>();
         foreach (var id in allIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var item = await FetchItemAsync(client, id, cancellationToken);
-            if (item is not null && IsAiRelated(item.Title))
+            if (item is null)
+                continue;
+
+            if (IsAiRelated(item.Title))
                 items.Add(item);
         }
 
@@ -95,7 +98,7 @@ public class HackerNewsFetcher : ITrendFetcher
 
     private bool IsAiRelated(string title) =>
         _settings.AiKeywords.Any(kw =>
-            Regex.IsMatch(title, $@"\b{Regex.Escape(kw)}\b", RegexOptions.IgnoreCase));
+            Regex.IsMatch(title, $@"\b{Regex.Escape(kw)}(?:s?\b)", RegexOptions.IgnoreCase));
 
     // ── Deserialization types ──────────────────────────────────────────────
 
