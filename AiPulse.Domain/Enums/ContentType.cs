@@ -7,5 +7,6 @@ public enum ContentType
     Article,
     Newsletter,
     ResearchPaper,
-    Discussion
+    Discussion,
+    Tool
 }

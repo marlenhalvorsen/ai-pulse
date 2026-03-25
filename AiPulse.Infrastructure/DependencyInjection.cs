@@ -29,6 +29,15 @@ public static class DependencyInjection
 
         services.Configure<RedditSettings>(configuration.GetSection("Reddit"));
         services.Configure<HackerNewsSettings>(configuration.GetSection("HackerNews"));
+        services.AddOptions<ProductHuntSettings>()
+            .Bind(configuration.GetSection("ProductHunt"))
+            .Validate(
+                s => !string.IsNullOrWhiteSpace(s.DeveloperToken),
+                "ProductHunt:DeveloperToken is not configured. " +
+                "Add it to appsettings.Development.json or set the " +
+                "ProductHunt__DeveloperToken environment variable. " +
+                "Never commit this token to source control.")
+            .ValidateOnStart();
 
         services.AddHttpClient("Reddit", (sp, client) =>
         {
@@ -43,8 +52,15 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(settings.BaseUrl);
         });
 
+        services.AddHttpClient("ProductHunt", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<ProductHuntSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl);
+        });
+
         services.AddScoped<ITrendFetcher, RedditFetcher>();
         services.AddScoped<ITrendFetcher, HackerNewsFetcher>();
+        services.AddScoped<ITrendFetcher, ProductHuntFetcher>();
 
         services.AddScoped<TrendRefreshJob>();
 

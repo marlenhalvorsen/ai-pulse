@@ -81,6 +81,7 @@ public class GetTrendingItemsQuery
         {
             SourceType.Reddit => "Reddit",
             SourceType.HackerNews => "HackerNews",
+            SourceType.ProductHunt => "ProductHunt",
             _ => item.ContentType.ToString()
         };
 
@@ -93,6 +94,7 @@ public class GetTrendingItemsQuery
         {
             SourceType.Reddit => "Reddit",
             SourceType.HackerNews => "HackerNews",
+            SourceType.ProductHunt => "ProductHunt",
             _ => item.Source.ToString()
         };
     }

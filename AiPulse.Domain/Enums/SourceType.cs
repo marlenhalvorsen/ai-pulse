@@ -3,5 +3,6 @@ namespace AiPulse.Domain.Enums;
 public enum SourceType
 {
     Reddit,
-    HackerNews
+    HackerNews,
+    ProductHunt
 }
