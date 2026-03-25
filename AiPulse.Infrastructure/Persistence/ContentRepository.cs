@@ -41,6 +41,7 @@ public class ContentRepository : IContentRepository, ITrendingQuery
 
     public async Task<IEnumerable<ContentItem>> GetTrendingAsync(
         ContentType? type,
+        SourceType? source,
         int limit,
         TimeSpan window,
         CancellationToken cancellationToken = default)
@@ -51,6 +52,9 @@ public class ContentRepository : IContentRepository, ITrendingQuery
 
         if (type.HasValue)
             query = query.Where(i => i.ContentType == type.Value);
+
+        if (source.HasValue)
+            query = query.Where(i => i.Source == source.Value);
 
         var items = await query.ToListAsync(cancellationToken);
 

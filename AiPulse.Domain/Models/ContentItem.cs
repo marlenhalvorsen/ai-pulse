@@ -7,6 +7,7 @@ public class ContentItem
     public string Id { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string Url { get; init; } = string.Empty;
+    public string? ExternalUrl { get; init; }
     public SourceType Source { get; init; }
     public ContentType ContentType { get; init; }
     public int Upvotes { get; init; }

@@ -1,5 +1,4 @@
 using System.Net;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Infrastructure.Configuration;
 using AiPulse.Infrastructure.Fetchers;
@@ -76,7 +75,7 @@ public class RedditFetcherTests
         };
 
         var factory = new StubHttpClientFactory(httpClient);
-        return new RedditFetcher(factory, Options.Create(settings), new UrlClassifier());
+        return new RedditFetcher(factory, Options.Create(settings));
     }
 
     [Fact]
@@ -90,8 +89,11 @@ public class RedditFetcherTests
         var item = items[0];
         item.Id.Should().Be("reddit_abc123");
         item.Title.Should().Be("GPT-5 drops today");
-        item.Url.Should().Be("https://www.youtube.com/watch?v=testid",
-            "link posts must use the external URL, not the Reddit permalink");
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/abc123/gpt_5_drops_today/",
+            "all Reddit posts must link to the Reddit thread, never the external article");
+        item.ExternalUrl.Should().Be("https://www.youtube.com/watch?v=testid",
+            "link posts must preserve the external URL for source-name display");
+        item.ContentType.Should().Be(ContentType.Discussion);
         item.Upvotes.Should().Be(1200);
         item.CommentCount.Should().Be(88);
         item.PostedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1742000000).UtcDateTime);
@@ -117,12 +119,13 @@ public class RedditFetcherTests
         item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/xyz789/weekly_thread/",
             "self-posts must link to the Reddit thread");
         item.ContentType.Should().Be(ContentType.Discussion);
+        item.ExternalUrl.Should().BeNull("self-posts have no external article to link to");
     }
 
     [Fact]
-    public async Task FetchAsync_LinkPost_UsesExternalUrlAndClassifiesByUrl()
+    public async Task FetchAsync_LinkPost_UsesPermalinkAndStoresExternalUrl()
     {
-        // is_self=false with an arxiv URL — should use the external URL and classify via UrlClassifier
+        // is_self=false — must always use permalink as the thread URL and store the external URL separately
         var json = """
             {"data":{"children":[{"kind":"t3","data":{
               "id":"p1","title":"Some paper","score":500,"num_comments":20,
@@ -136,9 +139,11 @@ public class RedditFetcherTests
 
         var item = (await sut.FetchAsync()).Single();
 
-        item.Url.Should().Be("https://arxiv.org/abs/2401.00001",
-            "link posts must use the external URL so classification is accurate");
-        item.ContentType.Should().Be(ContentType.ResearchPaper);
+        item.Url.Should().Be("https://www.reddit.com/r/MachineLearning/comments/p1/some_paper/",
+            "link posts must still link to the Reddit thread");
+        item.ExternalUrl.Should().Be("https://arxiv.org/abs/2401.00001",
+            "external URL must be preserved so the source domain can be displayed");
+        item.ContentType.Should().Be(ContentType.Discussion);
     }
 
     [Fact]

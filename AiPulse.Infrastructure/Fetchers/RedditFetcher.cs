@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AiPulse.Application.Interfaces;
-using AiPulse.Application.Services;
 using AiPulse.Domain.Enums;
 using AiPulse.Domain.Models;
 using AiPulse.Infrastructure.Configuration;
@@ -18,16 +17,13 @@ public class RedditFetcher : ITrendFetcher
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly RedditSettings _settings;
-    private readonly UrlClassifier _urlClassifier;
 
     public RedditFetcher(
         IHttpClientFactory httpClientFactory,
-        IOptions<RedditSettings> settings,
-        UrlClassifier urlClassifier)
+        IOptions<RedditSettings> settings)
     {
         _httpClientFactory = httpClientFactory;
         _settings = settings.Value;
-        _urlClassifier = urlClassifier;
     }
 
     public async Task<IEnumerable<ContentItem>> FetchAsync(CancellationToken cancellationToken = default)
@@ -67,27 +63,17 @@ public class RedditFetcher : ITrendFetcher
 
     private ContentItem MapToContentItem(RedditPost post)
     {
-        string url;
-        ContentType contentType;
-
-        if (post.IsSelf)
-        {
-            url = $"https://www.reddit.com{post.Permalink}";
-            contentType = ContentType.Discussion;
-        }
-        else
-        {
-            url = post.Url;
-            contentType = _urlClassifier.Classify(url);
-        }
+        var threadUrl = $"https://www.reddit.com{post.Permalink}";
+        var externalUrl = post.IsSelf ? null : post.Url;
 
         return new()
         {
             Id = $"reddit_{post.Id}",
             Title = post.Title,
-            Url = url,
+            Url = threadUrl,
+            ExternalUrl = externalUrl,
             Source = SourceType.Reddit,
-            ContentType = contentType,
+            ContentType = ContentType.Discussion,
             Upvotes = post.Score,
             CommentCount = post.NumComments,
             PostedAt = DateTimeOffset.FromUnixTimeSeconds((long)post.CreatedUtc).UtcDateTime

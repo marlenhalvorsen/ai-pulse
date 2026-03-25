@@ -32,21 +32,32 @@ public class GetTrendingItemsQuery
         IEnumerable<ContentItem> items;
         if (type.HasValue)
         {
-            items = await _query.GetTrendingAsync(type, clampedLimit, timeWindow, cancellationToken);
+            items = await _query.GetTrendingAsync(type, null, clampedLimit, timeWindow, cancellationToken);
         }
         else
         {
             var allItems = new List<ContentItem>();
             foreach (var ct in Enum.GetValues<ContentType>())
             {
-                var typeItems = await _query.GetTrendingAsync(ct, clampedLimit, timeWindow, cancellationToken);
-                allItems.AddRange(typeItems);
+                if (ct == ContentType.Discussion)
+                {
+                    // Each source gets its own independent top-N ranking
+                    var reddit = await _query.GetTrendingAsync(ct, SourceType.Reddit, clampedLimit, timeWindow, cancellationToken);
+                    var hn = await _query.GetTrendingAsync(ct, SourceType.HackerNews, clampedLimit, timeWindow, cancellationToken);
+                    allItems.AddRange(reddit);
+                    allItems.AddRange(hn);
+                }
+                else
+                {
+                    var typeItems = await _query.GetTrendingAsync(ct, null, clampedLimit, timeWindow, cancellationToken);
+                    allItems.AddRange(typeItems);
+                }
             }
             items = allItems;
         }
 
         var rows = items
-            .Select(i => MapToDto(i))
+            .Select(MapToDto)
             .GroupBy(d => d.ContentType)
             .Select(g => new TrendingRowDto(g.Key, g.ToList()));
 
@@ -63,12 +74,20 @@ public class GetTrendingItemsQuery
             item.Upvotes,
             item.CommentCount,
             item.PostedAt,
-            item.ContentType.ToString());
+            GetRowLabel(item));
+
+    private static string GetRowLabel(ContentItem item) =>
+        item.Source switch
+        {
+            SourceType.Reddit => "Reddit",
+            SourceType.HackerNews => "HackerNews",
+            _ => item.ContentType.ToString()
+        };
 
     private static string FormatSourceName(ContentItem item)
     {
-        if (item.Source == SourceType.Reddit && item.ContentType != ContentType.Discussion)
-            return ExtractDomain(item.Url);
+        if (item.Source == SourceType.Reddit && item.ExternalUrl is not null)
+            return ExtractDomain(item.ExternalUrl);
 
         return item.Source switch
         {
