@@ -20,6 +20,7 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, cfg) =>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {

@@ -19,6 +19,7 @@ public class SourceEndpointTests : IClassFixture<SourceEndpointTests.ApiFactory>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, cfg) =>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
