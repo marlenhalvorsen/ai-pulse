@@ -6,9 +6,8 @@
 
 <PageTitle>AI Pulse — What the AI world is talking about right now</PageTitle>
 
-<header class="site-header">
-    <h1>AI Pulse</h1>
-    <p class="site-header__tagline">What the AI world is talking about right now</p>
+<header class="page-header">
+    <h1>What the AI world is talking about right now</h1>
 </header>
 
 @if (_loading)
@@ -21,17 +20,16 @@ else if (_error is not null)
 }
 else
 {
-    <main class="trending-feed">
+    <div class="trending-feed">
         @foreach (var row in _rows)
         {
             <TrendingRow Row="row" />
         }
-    </main>
+    </div>
 }
 
 @code {
-    private static readonly string[] RowOrder =
-        ["Podcast", "Video", "Article", "Newsletter", "ResearchPaper", "Discussion"];
+    private static readonly string[] RowOrder = ["Reddit", "HackerNews", "ProductHunt", "Tool", "Article", "ResearchPaper", "Video", "Podcast", "Newsletter", "Discussion"];
 
     private IEnumerable<TrendingRowDto> _rows = [];
     private bool _loading = true;
@@ -43,7 +41,7 @@ else
         {
             var response = await TrendingQuery.ExecuteAsync();
             _rows = response.Rows
-                .OrderBy(r => Array.IndexOf(RowOrder, r.ContentType))
+                .OrderBy(r => Array.IndexOf(RowOrder, r.ContentType) is var i && i == -1 ? int.MaxValue : i)
                 .ToList();
         }
         catch (Exception)

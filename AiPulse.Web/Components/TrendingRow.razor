@@ -3,8 +3,11 @@
 @if (Row.Items.Any())
 {
     <section class="trending-row">
-        <h2>@Heading</h2>
-        <div class="trending-row__cards">
+        <div class="trending-row__header">
+            <h2>@Heading</h2>
+            <a href="@SourceHref" class="trending-row__see-all">See all →</a>
+        </div>
+        <div class="trending-row__scroll">
             @foreach (var item in Row.Items)
             {
                 <TrendingCard Item="item" />
@@ -18,16 +21,24 @@
 
     private string Heading => Row.ContentType switch
     {
-        "Reddit"       => "🔴 Reddit",
-        "HackerNews"   => "🟠 Hacker News",
-        "ProductHunt"  => "🐱 Product Hunt",
-        "Video"        => "Videos",
-        "Podcast"      => "Podcasts",
-        "Article"      => "Articles",
-        "Newsletter"   => "Newsletters",
-        "ResearchPaper"=> "Research",
-        "Tool"         => "Tools",
-        "Discussion"   => "Discussions",
-        _              => Row.ContentType
+        "Reddit"        => "🔴 Reddit",
+        "HackerNews"    => "🟠 Hacker News",
+        "ProductHunt"   => "🐱 Product Hunt",
+        "Video"         => "Videos",
+        "Podcast"       => "Podcasts",
+        "Article"       => "Articles",
+        "Newsletter"    => "Newsletters",
+        "ResearchPaper" => "Research",
+        "Tool"          => "Tools",
+        "Discussion"    => "Discussions",
+        _               => Row.ContentType
+    };
+
+    private string SourceHref => Row.ContentType switch
+    {
+        "Reddit"      => "source/reddit",
+        "HackerNews"  => "source/hackernews",
+        "ProductHunt" => "source/producthunt",
+        _             => ""
     };
 }

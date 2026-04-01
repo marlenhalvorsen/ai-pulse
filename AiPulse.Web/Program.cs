@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<GetTrendingItemsQuery>();
+builder.Services.AddScoped<GetSourceItemsQuery>();
 
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();

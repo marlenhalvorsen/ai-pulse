@@ -1,7 +1,7 @@
 @using AiPulse.Application.DTOs
 
-<div class="trending-card">
-    <a href="@Item.Url" target="_blank" rel="noopener noreferrer">@Item.Title</a>
+<a class="trending-card" href="@Item.Url" target="_blank" rel="noopener noreferrer">
+    <div class="trending-card__title">@Item.Title</div>
     <div class="trending-card__meta">
         <span class="@BadgeClass">@Item.SourceName</span>
         <span class="trending-card__score" title="Trend score">@((int)Item.TrendScore)</span>
@@ -10,7 +10,7 @@
         <span title="Upvotes">@Item.Upvotes ▲</span>
         <span title="Comments">@Item.CommentCount 💬</span>
     </div>
-</div>
+</a>
 
 @code {
     [Parameter, EditorRequired] public TrendingItemDto Item { get; set; } = null!;

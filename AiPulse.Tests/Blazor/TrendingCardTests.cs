@@ -14,7 +14,7 @@ public class TrendingCardTests : TestContext
 
         var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
 
-        cut.Find("a").TextContent.Should().Be("Why GPT-5 changes everything");
+        cut.Find(".trending-card__title").TextContent.Should().Be("Why GPT-5 changes everything");
     }
 
     [Fact]
