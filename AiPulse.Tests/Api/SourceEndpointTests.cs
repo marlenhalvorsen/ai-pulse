@@ -17,13 +17,16 @@ public class SourceEndpointTests : IClassFixture<SourceEndpointTests.ApiFactory>
 {
     public class ApiFactory : WebApplicationFactory<Program>
     {
+        private readonly string _dbName = $"test-source-{Guid.NewGuid():N}";
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, cfg) =>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ProductHunt:DeveloperToken"] = "test-token"
+                    ["ProductHunt:DeveloperToken"] = "test-token",
+                    ["ConnectionStrings:DefaultConnection"] = $"DataSource={_dbName};Mode=Memory;Cache=Shared"
                 }));
         }
     }
