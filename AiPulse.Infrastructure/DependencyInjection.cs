@@ -29,6 +29,7 @@ public static class DependencyInjection
 
         services.Configure<RedditSettings>(configuration.GetSection("Reddit"));
         services.Configure<HackerNewsSettings>(configuration.GetSection("HackerNews"));
+        services.Configure<DevToSettings>(configuration.GetSection("DevTo"));
         services.AddOptions<ProductHuntSettings>()
             .Bind(configuration.GetSection("ProductHunt"))
             .Validate(
@@ -58,9 +59,16 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(settings.BaseUrl);
         });
 
+        services.AddHttpClient("DevTo", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<DevToSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl);
+        });
+
         services.AddScoped<ITrendFetcher, RedditFetcher>();
         services.AddScoped<ITrendFetcher, HackerNewsFetcher>();
         services.AddScoped<ITrendFetcher, ProductHuntFetcher>();
+        services.AddScoped<ITrendFetcher, DevToFetcher>();
 
         services.AddScoped<TrendRefreshJob>();
 
