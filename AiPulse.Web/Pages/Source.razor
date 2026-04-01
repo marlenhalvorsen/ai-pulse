@@ -1,0 +1,85 @@
+@page "/source/{sourceName}"
+@using AiPulse.Application.DTOs
+@using AiPulse.Application.UseCases
+@using AiPulse.Domain.Enums
+@using AiPulse.Web.Components
+@inject GetSourceItemsQuery SourceQuery
+
+<PageTitle>@PageTitle — AI Pulse</PageTitle>
+
+<header class="page-header">
+    <h1>@PageTitle</h1>
+    <p class="page-header__sub">Top AI content from @PageTitle</p>
+</header>
+
+@if (_loading)
+{
+    <p class="loading">Loading…</p>
+}
+else if (_invalidSource)
+{
+    <p class="error">Unknown source "@SourceName".</p>
+}
+else if (_error is not null)
+{
+    <p class="error">Could not load content. Please try again later.</p>
+}
+else if (!_items.Any())
+{
+    <p class="loading">No content yet — check back soon.</p>
+}
+else
+{
+    <div class="source-grid">
+        @foreach (var item in _items)
+        {
+            <TrendingCard Item="item" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string SourceName { get; set; } = "";
+
+    private IEnumerable<TrendingItemDto> _items = [];
+    private bool _loading = true;
+    private bool _invalidSource;
+    private string? _error;
+
+    private string PageTitle => SourceName.ToLowerInvariant() switch
+    {
+        "reddit" => "Reddit",
+        "hackernews" => "Hacker News",
+        "producthunt" => "Product Hunt",
+        _ => SourceName
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _invalidSource = false;
+        _error = null;
+        _items = [];
+
+        if (!Enum.TryParse<SourceType>(SourceName, ignoreCase: true, out var source))
+        {
+            _invalidSource = true;
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            var response = await SourceQuery.ExecuteAsync(source);
+            _items = response.Items;
+        }
+        catch (Exception)
+        {
+            _error = "Failed to load";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

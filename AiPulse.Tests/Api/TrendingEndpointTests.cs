@@ -18,12 +18,16 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
     // Provides a test token so ValidateOnStart does not throw in the test host.
     public class ApiFactory : WebApplicationFactory<Program>
     {
+        private readonly string _dbName = $"test-trending-{Guid.NewGuid():N}";
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, cfg) =>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ProductHunt:DeveloperToken"] = "test-token"
+                    ["ProductHunt:DeveloperToken"] = "test-token",
+                    ["ConnectionStrings:DefaultConnection"] = $"DataSource={_dbName};Mode=Memory;Cache=Shared"
                 }));
         }
     }
@@ -166,7 +170,7 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
     }
 
     [Fact]
-    public async Task GetTrending_RedditLinkPost_ShowsDomainAsSourceName()
+    public async Task GetTrending_RedditLinkPost_ShowsRedditAsSourceName()
     {
         var linkPostItem = new ContentItem
         {
@@ -188,8 +192,8 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
             .SelectMany(r => r.GetProperty("items").EnumerateArray())
             .First(i => i.GetProperty("id").GetString() == "reddit_link1");
 
-        item.GetProperty("sourceName").GetString().Should().Be("theguardian.com",
-            "Reddit link posts should show the external article domain, not 'Reddit'");
+        item.GetProperty("sourceName").GetString().Should().Be("Reddit",
+            "all Reddit posts should show 'Reddit' as source name regardless of what they link to");
     }
 
     private static ContentItem MakeItem(string id, ContentType contentType, SourceType source = SourceType.Reddit) =>

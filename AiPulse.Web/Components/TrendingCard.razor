@@ -1,7 +1,7 @@
 @using AiPulse.Application.DTOs
 
-<div class="trending-card">
-    <a href="@Item.Url" target="_blank" rel="noopener noreferrer">@Item.Title</a>
+<a class="trending-card" href="@Item.Url" target="_blank" rel="noopener noreferrer">
+    <div class="trending-card__title">@Item.Title</div>
     <div class="trending-card__meta">
         <span class="@BadgeClass">@Item.SourceName</span>
         <span class="trending-card__score" title="Trend score">@((int)Item.TrendScore)</span>
@@ -10,16 +10,22 @@
         <span title="Upvotes">@Item.Upvotes ▲</span>
         <span title="Comments">@Item.CommentCount 💬</span>
     </div>
-</div>
+</a>
 
 @code {
     [Parameter, EditorRequired] public TrendingItemDto Item { get; set; } = null!;
 
-    private string BadgeClass => Item.SourceName switch
-    {
-        "Reddit"      => "source-badge source-badge--reddit",
-        "HackerNews"  => "source-badge source-badge--hackernews",
-        "ProductHunt" => "source-badge source-badge--producthunt",
-        _             => "source-badge"
-    };
+    private string BadgeClass =>
+        IsRedditSource(Item.SourceName) ? "source-badge source-badge--reddit" :
+        Item.SourceName switch
+        {
+            "HackerNews"  => "source-badge source-badge--hackernews",
+            "ProductHunt" => "source-badge source-badge--producthunt",
+            _             => "source-badge"
+        };
+
+    private static bool IsRedditSource(string name) =>
+        name.Equals("Reddit", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("reddit.com", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("redd.it", StringComparison.OrdinalIgnoreCase);
 }

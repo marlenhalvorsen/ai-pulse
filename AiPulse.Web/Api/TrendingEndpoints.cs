@@ -29,6 +29,19 @@ public static class TrendingEndpoints
             return Results.Ok(result);
         });
 
+        app.MapGet("/api/source/{sourceName}", async (
+            string sourceName,
+            int limit = 20,
+            string window = "week",
+            GetSourceItemsQuery query = null!) =>
+        {
+            if (!Enum.TryParse<SourceType>(sourceName, ignoreCase: true, out var source))
+                return Results.NotFound();
+
+            var result = await query.ExecuteAsync(source, limit, window);
+            return Results.Ok(result);
+        });
+
         return app;
     }
 }

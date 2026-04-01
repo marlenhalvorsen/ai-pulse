@@ -1,27 +1,49 @@
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">AI Pulse</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
+@using AiPulse.Domain.Enums
+
+<nav class="sidebar">
+    <div class="sidebar__header">
+        <a href="" class="sidebar__brand">AI Pulse</a>
+        <button class="sidebar__toggle" @onclick="ToggleMenu" title="Toggle navigation">
+            <span></span><span></span><span></span>
         </button>
     </div>
-</div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Trending</NavLink>
-        </div>
-    </nav>
-</div>
+    <div class="@MenuClass">
+        <NavLink class="sidebar__link" href="" Match="NavLinkMatch.All">
+            <span class="sidebar__link-icon">⚡</span>Home
+        </NavLink>
+
+        <div class="sidebar__section-label">Sources</div>
+
+        @foreach (var source in Enum.GetValues<SourceType>())
+        {
+            <NavLink class="sidebar__link" href="@($"source/{source.ToString().ToLower()}")">
+                <span class="sidebar__link-icon">@SourceIcon(source)</span>@SourceLabel(source)
+            </NavLink>
+        }
+    </div>
+</nav>
 
 @code {
-    private bool collapseNavMenu = true;
+    private bool _collapsed = true;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private string MenuClass => _collapsed ? "sidebar__nav sidebar__nav--collapsed" : "sidebar__nav";
 
-    private void ToggleNavMenu()
+    private void ToggleMenu() => _collapsed = !_collapsed;
+
+    private static string SourceIcon(SourceType source) => source switch
     {
-        collapseNavMenu = !collapseNavMenu;
-    }
+        SourceType.Reddit => "🔴",
+        SourceType.HackerNews => "🟠",
+        SourceType.ProductHunt => "🐱",
+        _ => "•"
+    };
+
+    private static string SourceLabel(SourceType source) => source switch
+    {
+        SourceType.Reddit => "Reddit",
+        SourceType.HackerNews => "Hacker News",
+        SourceType.ProductHunt => "Product Hunt",
+        _ => source.ToString()
+    };
 }
