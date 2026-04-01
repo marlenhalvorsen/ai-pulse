@@ -85,26 +85,12 @@ public class GetTrendingItemsQuery
             _ => item.ContentType.ToString()
         };
 
-    private static string FormatSourceName(ContentItem item)
-    {
-        if (item.Source == SourceType.Reddit && item.ExternalUrl is not null)
-            return ExtractDomain(item.ExternalUrl);
-
-        return item.Source switch
+    private static string FormatSourceName(ContentItem item) =>
+        item.Source switch
         {
             SourceType.Reddit => "Reddit",
             SourceType.HackerNews => "HackerNews",
             SourceType.ProductHunt => "ProductHunt",
             _ => item.Source.ToString()
         };
-    }
-
-    private static string ExtractDomain(string url)
-    {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            return uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
-                ? uri.Host[4..]
-                : uri.Host;
-        return url;
-    }
 }

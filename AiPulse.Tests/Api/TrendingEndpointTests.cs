@@ -170,7 +170,7 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
     }
 
     [Fact]
-    public async Task GetTrending_RedditLinkPost_ShowsDomainAsSourceName()
+    public async Task GetTrending_RedditLinkPost_ShowsRedditAsSourceName()
     {
         var linkPostItem = new ContentItem
         {
@@ -192,8 +192,8 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
             .SelectMany(r => r.GetProperty("items").EnumerateArray())
             .First(i => i.GetProperty("id").GetString() == "reddit_link1");
 
-        item.GetProperty("sourceName").GetString().Should().Be("theguardian.com",
-            "Reddit link posts should show the external article domain, not 'Reddit'");
+        item.GetProperty("sourceName").GetString().Should().Be("Reddit",
+            "all Reddit posts should show 'Reddit' as source name regardless of what they link to");
     }
 
     private static ContentItem MakeItem(string id, ContentType contentType, SourceType source = SourceType.Reddit) =>
