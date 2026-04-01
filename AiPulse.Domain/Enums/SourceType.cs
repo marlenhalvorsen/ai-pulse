@@ -4,5 +4,6 @@ public enum SourceType
 {
     Reddit,
     HackerNews,
-    ProductHunt
+    ProductHunt,
+    DevTo
 }
