@@ -196,6 +196,33 @@ public class TrendingEndpointTests : IClassFixture<TrendingEndpointTests.ApiFact
             "all Reddit posts should show 'Reddit' as source name regardless of what they link to");
     }
 
+    [Fact]
+    public async Task GetTrending_DevToArticle_IsGroupedInDevToRow()
+    {
+        var devToItem = MakeItem("devto_1", ContentType.Article, SourceType.DevTo);
+        var client = CreateClient([devToItem]);
+
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/trending");
+        var rows = json.GetProperty("rows").EnumerateArray().ToList();
+
+        rows.Should().Contain(r => r.GetProperty("contentType").GetString() == "DevTo",
+            "Dev.to articles must appear in their own row, not the generic Article row");
+    }
+
+    [Fact]
+    public async Task GetTrending_DevToItem_ShowsDevToAsSourceName()
+    {
+        var devToItem = MakeItem("devto_1", ContentType.Article, SourceType.DevTo);
+        var client = CreateClient([devToItem]);
+
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/trending");
+        var item = json.GetProperty("rows").EnumerateArray()
+            .SelectMany(r => r.GetProperty("items").EnumerateArray())
+            .First(i => i.GetProperty("id").GetString() == "devto_1");
+
+        item.GetProperty("sourceName").GetString().Should().Be("Dev.to");
+    }
+
     private static ContentItem MakeItem(string id, ContentType contentType, SourceType source = SourceType.Reddit) =>
         new()
         {
