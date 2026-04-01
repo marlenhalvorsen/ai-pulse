@@ -68,6 +68,21 @@ public class TrendingCardTests : TestContext
         cut.Markup.Should().Contain("89");
     }
 
+    [Theory]
+    [InlineData("Reddit")]
+    [InlineData("reddit.com")]
+    [InlineData("i.redd.it")]
+    [InlineData("redd.it")]
+    public void TrendingCard_RedditSourceVariants_ShowRedditBadge(string sourceName)
+    {
+        var item = MakeItem("Some title", "https://example.com", sourceName: sourceName);
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.Find(".source-badge").ClassList.Should().Contain("source-badge--reddit",
+            $"source name '{sourceName}' should be recognised as Reddit");
+    }
+
     private static TrendingItemDto MakeItem(
         string title = "Title",
         string url = "https://example.com",

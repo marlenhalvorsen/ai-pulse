@@ -15,11 +15,17 @@
 @code {
     [Parameter, EditorRequired] public TrendingItemDto Item { get; set; } = null!;
 
-    private string BadgeClass => Item.SourceName switch
-    {
-        "Reddit"      => "source-badge source-badge--reddit",
-        "HackerNews"  => "source-badge source-badge--hackernews",
-        "ProductHunt" => "source-badge source-badge--producthunt",
-        _             => "source-badge"
-    };
+    private string BadgeClass =>
+        IsRedditSource(Item.SourceName) ? "source-badge source-badge--reddit" :
+        Item.SourceName switch
+        {
+            "HackerNews"  => "source-badge source-badge--hackernews",
+            "ProductHunt" => "source-badge source-badge--producthunt",
+            _             => "source-badge"
+        };
+
+    private static bool IsRedditSource(string name) =>
+        name.Equals("Reddit", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("reddit.com", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("redd.it", StringComparison.OrdinalIgnoreCase);
 }
