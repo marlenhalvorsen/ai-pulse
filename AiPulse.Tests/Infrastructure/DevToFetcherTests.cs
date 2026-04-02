@@ -34,19 +34,33 @@ public class DevToFetcherTests
     private static DevToFetcher CreateFetcher(
         Func<HttpRequestMessage, HttpResponseMessage> handler,
         string[]? tags = null,
-        int articlesPerTag = 10)
+        int articlesPerTag = 10,
+        string userAgent = "ai-pulse/1.0")
     {
         var client = new HttpClient(new FakeHttpMessageHandler(handler))
         {
             BaseAddress = new Uri("https://dev.to")
         };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
         var settings = Options.Create(new DevToSettings
         {
             BaseUrl = "https://dev.to",
             Tags = tags ?? ["ai"],
-            ArticlesPerTag = articlesPerTag
+            ArticlesPerTag = articlesPerTag,
+            UserAgent = userAgent
         });
         return new DevToFetcher(new StubHttpClientFactory(client), settings);
+    }
+
+    [Fact]
+    public async Task FetchAsync_SendsUserAgentHeader()
+    {
+        HttpRequestMessage? captured = null;
+        var fetcher = CreateFetcher(req => { captured = req; return OkJson("[]"); });
+
+        await fetcher.FetchAsync();
+
+        captured!.Headers.UserAgent.ToString().Should().Be("ai-pulse/1.0");
     }
 
     [Fact]

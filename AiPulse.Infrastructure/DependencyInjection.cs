@@ -63,6 +63,7 @@ public static class DependencyInjection
         {
             var settings = sp.GetRequiredService<IOptions<DevToSettings>>().Value;
             client.BaseAddress = new Uri(settings.BaseUrl);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
         });
 
         services.AddScoped<ITrendFetcher, RedditFetcher>();
