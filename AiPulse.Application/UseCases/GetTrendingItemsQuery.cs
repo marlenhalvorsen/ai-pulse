@@ -83,6 +83,7 @@ public class GetTrendingItemsQuery
             SourceType.HackerNews => "HackerNews",
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "DevTo",
+            SourceType.GitHub => "GitHub",
             _ => item.ContentType.ToString()
         };
 
@@ -93,6 +94,7 @@ public class GetTrendingItemsQuery
             SourceType.HackerNews => "HackerNews",
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "Dev.to",
+            SourceType.GitHub => "GitHub",
             _ => item.Source.ToString()
         };
 }

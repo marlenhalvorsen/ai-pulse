@@ -29,4 +29,25 @@ public class NavMenuTests : TestContext
 
         cut.FindAll(".sidebar__link").Should().NotBeEmpty();
     }
+
+    [Fact]
+    public void NavMenu_RendersGitHubTrendingLink()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        cut.FindAll(".sidebar__link")
+            .Should().Contain(el => el.GetAttribute("href") == "source/github");
+    }
+
+    [Fact]
+    public void NavMenu_GitHubLink_HasCorrectLabel()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        var githubLink = cut.FindAll(".sidebar__link")
+            .FirstOrDefault(el => el.GetAttribute("href") == "source/github");
+
+        githubLink.Should().NotBeNull();
+        githubLink!.TextContent.Should().Contain("GitHub");
+    }
 }
