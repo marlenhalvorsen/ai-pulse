@@ -44,20 +44,11 @@ a:hover { text-decoration: underline; }
 .sidebar__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid #2e2e3e;
+    min-height: 48px;
 }
-
-.sidebar__brand {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: #7eb8f7;
-    letter-spacing: -0.3px;
-    text-decoration: none;
-}
-
-.sidebar__brand:hover { text-decoration: none; color: #a8d0ff; }
 
 .sidebar__toggle {
     display: none;
@@ -123,23 +114,47 @@ a:hover { text-decoration: underline; }
     flex-shrink: 0;
 }
 
-/* ── Page header ──────────────────────────────────────────── */
-.page-header {
+/* ── Site logo ────────────────────────────────────────────── */
+.site-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin-bottom: 2rem;
 }
 
-.page-header h1 {
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: #ffffff;
-    letter-spacing: -0.3px;
-    line-height: 1.2;
+.site-logo__ekg {
+    flex: 1;
+    height: 28px;
+    overflow: visible;
 }
 
-.page-header__sub {
-    color: #7a7a90;
-    margin-top: 0.35rem;
-    font-size: 0.9rem;
+.site-logo__line {
+    fill: none;
+    stroke: #7eb8f7;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: ekg-draw 1.4s ease-out forwards;
+}
+
+.site-logo__line--right {
+    animation-delay: 0.2s;
+}
+
+@keyframes ekg-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+.site-logo__name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* ── Trending feed ────────────────────────────────────────── */
