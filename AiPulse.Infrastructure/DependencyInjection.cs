@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.Configure<RedditSettings>(configuration.GetSection("Reddit"));
         services.Configure<HackerNewsSettings>(configuration.GetSection("HackerNews"));
         services.Configure<DevToSettings>(configuration.GetSection("DevTo"));
+        services.Configure<GitHubTrendingSettings>(configuration.GetSection("GitHubTrending"));
         services.AddOptions<ProductHuntSettings>()
             .Bind(configuration.GetSection("ProductHunt"))
             .Validate(
@@ -66,10 +67,18 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
         });
 
+        services.AddHttpClient("GitHubTrending", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<GitHubTrendingSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
+        });
+
         services.AddScoped<ITrendFetcher, RedditFetcher>();
         services.AddScoped<ITrendFetcher, HackerNewsFetcher>();
         services.AddScoped<ITrendFetcher, ProductHuntFetcher>();
         services.AddScoped<ITrendFetcher, DevToFetcher>();
+        services.AddScoped<ITrendFetcher, GitHubTrendingFetcher>();
 
         services.AddScoped<TrendRefreshJob>();
 
