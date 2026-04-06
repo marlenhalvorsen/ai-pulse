@@ -5,5 +5,6 @@ public enum SourceType
     Reddit,
     HackerNews,
     ProductHunt,
-    DevTo
+    DevTo,
+    GitHub
 }

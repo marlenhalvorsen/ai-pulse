@@ -8,5 +8,6 @@ public enum ContentType
     Newsletter,
     ResearchPaper,
     Discussion,
-    Tool
+    Tool,
+    Repository
 }

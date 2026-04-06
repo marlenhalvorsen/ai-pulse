@@ -47,6 +47,16 @@ public class TrendingRowTests : TestContext
         cut.Find(".trending-row__see-all").GetAttribute("href").Should().Be("source/devto");
     }
 
+    [Fact]
+    public void TrendingRow_GitHub_HasCorrectSourceHref()
+    {
+        var row = new TrendingRowDto("GitHub", [MakeItem("g1")]);
+
+        var cut = RenderComponent<TrendingRow>(p => p.Add(r => r.Row, row));
+
+        cut.Find(".trending-row__see-all").GetAttribute("href").Should().Be("source/github");
+    }
+
     [Theory]
     [InlineData("Video", "Videos")]
     [InlineData("Podcast", "Podcasts")]
@@ -55,6 +65,7 @@ public class TrendingRowTests : TestContext
     [InlineData("ResearchPaper", "Research")]
     [InlineData("Discussion", "Discussions")]
     [InlineData("DevTo", "🟢 Dev.to")]
+    [InlineData("GitHub", "⚫ GitHub Trending")]
     public void TrendingRow_HeadingLabel_MatchesContentType(string contentType, string expectedHeading)
     {
         var row = new TrendingRowDto(contentType, [MakeItem("x")]);
