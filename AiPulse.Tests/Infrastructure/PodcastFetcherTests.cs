@@ -3,6 +3,7 @@ using AiPulse.Domain.Enums;
 using AiPulse.Infrastructure.Configuration;
 using AiPulse.Infrastructure.Fetchers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace AiPulse.Tests.Infrastructure;
@@ -55,7 +56,7 @@ public class PodcastFetcherTests
             CuratedFeeds = curatedFeeds ?? [],
             EpisodesPerShow = 1
         });
-        return new PodcastFetcher(new StubHttpClientFactory(client), settings);
+        return new PodcastFetcher(new StubHttpClientFactory(client), settings, NullLogger<PodcastFetcher>.Instance);
     }
 
     // ── Test data ─────────────────────────────────────────────────────────────
@@ -353,6 +354,46 @@ public class PodcastFetcherTests
         var item = (await sut.FetchAsync()).Single();
 
         item.Id.Should().StartWith("podcast_");
+    }
+
+    [Fact]
+    public async Task FetchAsync_WhenCuratedFeedReturns404_ContinuesWithRemainingFeeds()
+    {
+        var curated = new[]
+        {
+            new CuratedPodcastFeed { ShowName = "Bad Feed", RssUrl = "https://feeds.example.com/broken" },
+            new CuratedPodcastFeed { ShowName = "Good Feed", RssUrl = "https://feeds.example.com/good" }
+        };
+        var sut = CreateFetcher(req =>
+        {
+            var url = req.RequestUri!.ToString();
+            if (url.Contains("toppodcasts")) return OkJson(TopChartsEmpty);
+            if (url.Contains("broken")) return new HttpResponseMessage(HttpStatusCode.NotFound);
+            return OkXml(RssWithEpisode("Good Episode", "https://good.com/1", "Great AI content"));
+        }, curatedFeeds: curated);
+
+        var items = (await sut.FetchAsync()).ToList();
+
+        items.Should().HaveCount(1);
+        items.Single().ShowName.Should().Be("Good Feed");
+    }
+
+    [Fact]
+    public async Task FetchAsync_WhenChartRssFeedReturns404_ContinuesWithCuratedFeeds()
+    {
+        var curated = new[] { new CuratedPodcastFeed { ShowName = "Curated AI Show", RssUrl = "https://feeds.example.com/curated" } };
+        var sut = CreateFetcher(req =>
+        {
+            var url = req.RequestUri!.ToString();
+            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
+            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained Podcast", "https://feeds.example.com/broken-rss"));
+            if (url.Contains("broken-rss")) return new HttpResponseMessage(HttpStatusCode.NotFound);
+            return OkXml(RssWithEpisode("Curated Ep", "https://curated.com/1", "AI content"));
+        }, curatedFeeds: curated);
+
+        var items = (await sut.FetchAsync()).ToList();
+
+        items.Should().Contain(i => i.ShowName == "Curated AI Show");
     }
 
     [Fact]

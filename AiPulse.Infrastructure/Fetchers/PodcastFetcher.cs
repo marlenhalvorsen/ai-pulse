@@ -5,6 +5,7 @@ using AiPulse.Application.Interfaces;
 using AiPulse.Domain.Enums;
 using AiPulse.Domain.Models;
 using AiPulse.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AiPulse.Infrastructure.Fetchers;
@@ -13,13 +14,16 @@ public class PodcastFetcher : ITrendFetcher
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly PodcastSettings _settings;
+    private readonly ILogger<PodcastFetcher> _logger;
 
     public PodcastFetcher(
         IHttpClientFactory httpClientFactory,
-        IOptions<PodcastSettings> settings)
+        IOptions<PodcastSettings> settings,
+        ILogger<PodcastFetcher> logger)
     {
         _httpClientFactory = httpClientFactory;
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<ContentItem>> FetchAsync(CancellationToken cancellationToken = default)
@@ -48,9 +52,17 @@ public class PodcastFetcher : ITrendFetcher
             if (!seenShows.Add(feed.ShowName))
                 continue;
 
-            var episode = await FetchLatestEpisodeAsync(client, feed.ShowName, feed.RssUrl, cancellationToken);
-            if (episode is not null)
-                items.Add(episode);
+            try
+            {
+                var episode = await FetchLatestEpisodeAsync(client, feed.ShowName, feed.RssUrl, cancellationToken);
+                if (episode is not null)
+                    items.Add(episode);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning("Curated podcast feed unavailable for '{Show}' ({Url}): {Status}",
+                    feed.ShowName, feed.RssUrl, ex.StatusCode);
+            }
         }
 
         return items;
@@ -86,9 +98,17 @@ public class PodcastFetcher : ITrendFetcher
             if (!rssByCollectionId.TryGetValue(entry.Id, out var feedInfo))
                 continue;
 
-            var episode = await FetchLatestEpisodeAsync(client, feedInfo.ShowName, feedInfo.FeedUrl, cancellationToken);
-            if (episode is not null)
-                items.Add(episode);
+            try
+            {
+                var episode = await FetchLatestEpisodeAsync(client, feedInfo.ShowName, feedInfo.FeedUrl, cancellationToken);
+                if (episode is not null)
+                    items.Add(episode);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning("Podcast RSS feed unavailable for '{Show}' ({Url}): {Status}",
+                    feedInfo.ShowName, feedInfo.FeedUrl, ex.StatusCode);
+            }
         }
 
         return items;
