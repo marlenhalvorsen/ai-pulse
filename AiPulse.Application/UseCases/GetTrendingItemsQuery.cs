@@ -84,6 +84,7 @@ public class GetTrendingItemsQuery
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "DevTo",
             SourceType.GitHub => "GitHub",
+            SourceType.Podcast => "Podcast",
             _ => item.ContentType.ToString()
         };
 
@@ -95,6 +96,7 @@ public class GetTrendingItemsQuery
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "Dev.to",
             SourceType.GitHub => "GitHub",
+            SourceType.Podcast => "Podcast",
             _ => item.Source.ToString()
         };
 }
