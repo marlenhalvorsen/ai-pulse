@@ -11,8 +11,6 @@ namespace AiPulse.Infrastructure.Fetchers;
 
 public class PodcastFetcher : ITrendFetcher
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly PodcastSettings _settings;
 
