@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.Configure<HackerNewsSettings>(configuration.GetSection("HackerNews"));
         services.Configure<DevToSettings>(configuration.GetSection("DevTo"));
         services.Configure<GitHubTrendingSettings>(configuration.GetSection("GitHubTrending"));
+        services.Configure<PodcastSettings>(configuration.GetSection("Podcasts"));
         services.AddOptions<ProductHuntSettings>()
             .Bind(configuration.GetSection("ProductHunt"))
             .Validate(
@@ -79,6 +80,13 @@ public static class DependencyInjection
         services.AddScoped<ITrendFetcher, ProductHuntFetcher>();
         services.AddScoped<ITrendFetcher, DevToFetcher>();
         services.AddScoped<ITrendFetcher, GitHubTrendingFetcher>();
+        services.AddScoped<ITrendFetcher, PodcastFetcher>();
+
+        services.AddHttpClient("Podcasts", (sp, client) =>
+        {
+            var settings = sp.GetRequiredService<IOptions<PodcastSettings>>().Value;
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(settings.UserAgent);
+        });
 
         services.AddScoped<TrendRefreshJob>();
 
