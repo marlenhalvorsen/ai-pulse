@@ -55,7 +55,6 @@ public class PodcastFetcher : ITrendFetcher
     private static IEnumerable<ContentItem> ParseFeed(string xml, int limit)
     {
         var doc = XDocument.Parse(xml);
-        XNamespace? itunes = doc.Root?.GetNamespaceOfPrefix("itunes");
 
         return doc.Descendants("item")
             .Take(limit)
