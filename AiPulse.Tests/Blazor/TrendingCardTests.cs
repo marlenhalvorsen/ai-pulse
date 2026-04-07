@@ -83,6 +83,57 @@ public class TrendingCardTests : TestContext
             $"source name '{sourceName}' should be recognised as Reddit");
     }
 
+    [Fact]
+    public void TrendingCard_Podcast_ShowsDescription()
+    {
+        var item = MakePodcastItem(description: "Deep dive into transformer architecture and attention mechanisms.");
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.Markup.Should().Contain("Deep dive into transformer architecture");
+    }
+
+    [Fact]
+    public void TrendingCard_Podcast_HidesUpvotesAndComments()
+    {
+        var item = MakePodcastItem(upvotes: 0, commentCount: 0);
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.FindAll(".trending-card__stats").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TrendingCard_NonPodcast_ShowsUpvotesAndComments()
+    {
+        var item = MakeItem("GPT-5 is here", upvotes: 999, commentCount: 42);
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.Markup.Should().Contain("999");
+        cut.Markup.Should().Contain("42");
+    }
+
+    [Fact]
+    public void TrendingCard_Podcast_ShowsShowNameAsBadge()
+    {
+        var item = MakePodcastItem(sourceName: "Lex Fridman Podcast");
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.Markup.Should().Contain("Lex Fridman Podcast");
+    }
+
+    [Fact]
+    public void TrendingCard_WhenDescriptionNull_DoesNotRenderDescriptionElement()
+    {
+        var item = MakeItem("Title");  // non-podcast, no description
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.FindAll(".trending-card__description").Should().BeEmpty();
+    }
+
     private static TrendingItemDto MakeItem(
         string title = "Title",
         string url = "https://example.com",
@@ -100,4 +151,21 @@ public class TrendingCardTests : TestContext
             CommentCount: commentCount,
             PostedAt: DateTime.UtcNow,
             ContentType: "Article");
+
+    private static TrendingItemDto MakePodcastItem(
+        string sourceName = "AI Daily Brief",
+        string description = "Episode description here.",
+        int upvotes = 0,
+        int commentCount = 0) =>
+        new(
+            Id: "pod-1",
+            Title: "Episode Title",
+            Url: "https://podcast.com/ep1",
+            SourceName: sourceName,
+            TrendScore: 50.0,
+            Upvotes: upvotes,
+            CommentCount: commentCount,
+            PostedAt: DateTime.UtcNow,
+            ContentType: "Podcast",
+            Description: description);
 }

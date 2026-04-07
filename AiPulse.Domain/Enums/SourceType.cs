@@ -6,5 +6,6 @@ public enum SourceType
     HackerNews,
     ProductHunt,
     DevTo,
-    GitHub
+    GitHub,
+    Podcast
 }

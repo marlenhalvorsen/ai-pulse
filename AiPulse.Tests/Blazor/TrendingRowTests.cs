@@ -48,6 +48,16 @@ public class TrendingRowTests : TestContext
     }
 
     [Fact]
+    public void TrendingRow_Podcast_HasCorrectSourceHref()
+    {
+        var row = new TrendingRowDto("Podcast", [MakeItem("p1")]);
+
+        var cut = RenderComponent<TrendingRow>(p => p.Add(r => r.Row, row));
+
+        cut.Find(".trending-row__see-all").GetAttribute("href").Should().Be("source/podcast");
+    }
+
+    [Fact]
     public void TrendingRow_GitHub_HasCorrectSourceHref()
     {
         var row = new TrendingRowDto("GitHub", [MakeItem("g1")]);

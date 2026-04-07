@@ -13,4 +13,6 @@ public class ContentItem
     public int Upvotes { get; init; }
     public int CommentCount { get; init; }
     public DateTime PostedAt { get; init; }
+    public string? Description { get; init; }
+    public string? ShowName { get; init; }
 }
