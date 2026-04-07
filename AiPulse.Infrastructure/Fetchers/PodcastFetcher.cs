@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AiPulse.Application.Interfaces;
@@ -31,83 +31,21 @@ public class PodcastFetcher : ITrendFetcher
         cancellationToken.ThrowIfCancellationRequested();
 
         var client = _httpClientFactory.CreateClient("Podcasts");
-
-        // Tracks seen show names (case-insensitive) to deduplicate across charts + curated
-        var seenShows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var items = new List<ContentItem>();
 
-        // 1. Apple Podcasts Top Charts → filter AI → lookup RSS → fetch latest episode
-        var chartItems = await FetchChartEpisodesAsync(client, cancellationToken);
-        foreach (var item in chartItems)
-        {
-            if (seenShows.Add(item.ShowName ?? item.Id))
-                items.Add(item);
-        }
-
-        // 2. Curated feeds — always included, skip shows already fetched from charts
         foreach (var feed in _settings.CuratedFeeds)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!seenShows.Add(feed.ShowName))
-                continue;
-
             try
             {
-                var episode = await FetchLatestEpisodeAsync(client, feed.ShowName, feed.RssUrl, cancellationToken);
-                if (episode is not null)
-                    items.Add(episode);
+                var episodes = await FetchEpisodesAsync(client, feed.ShowName, feed.RssUrl, cancellationToken);
+                items.AddRange(episodes);
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogWarning("Curated podcast feed unavailable for '{Show}' ({Url}): {Status}",
+                _logger.LogWarning("Podcast feed unavailable for '{Show}' ({Url}): {Status}",
                     feed.ShowName, feed.RssUrl, ex.StatusCode);
-            }
-        }
-
-        return items;
-    }
-
-    // ── Top Charts ────────────────────────────────────────────────────────────
-
-    private async Task<IEnumerable<ContentItem>> FetchChartEpisodesAsync(
-        HttpClient client, CancellationToken cancellationToken)
-    {
-        var chartsResponse = await client.GetAsync(_settings.TopChartsUrl, cancellationToken);
-        chartsResponse.EnsureSuccessStatusCode();
-        var chartsJson = await chartsResponse.Content.ReadAsStringAsync(cancellationToken);
-
-        var entries = ParseTopCharts(chartsJson);
-        var aiEntries = entries.Where(e => IsAiRelated(e.Name)).ToList();
-        if (aiEntries.Count == 0)
-            return [];
-
-        // Batch lookup to get RSS feed URLs
-        var ids = string.Join(",", aiEntries.Select(e => e.Id));
-        var lookupResponse = await client.GetAsync($"{_settings.LookupBaseUrl}?id={ids}", cancellationToken);
-        lookupResponse.EnsureSuccessStatusCode();
-        var lookupJson = await lookupResponse.Content.ReadAsStringAsync(cancellationToken);
-
-        var rssByCollectionId = ParseLookup(lookupJson);
-
-        var items = new List<ContentItem>();
-        foreach (var entry in aiEntries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!rssByCollectionId.TryGetValue(entry.Id, out var feedInfo))
-                continue;
-
-            try
-            {
-                var episode = await FetchLatestEpisodeAsync(client, feedInfo.ShowName, feedInfo.FeedUrl, cancellationToken);
-                if (episode is not null)
-                    items.Add(episode);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogWarning("Podcast RSS feed unavailable for '{Show}' ({Url}): {Status}",
-                    feedInfo.ShowName, feedInfo.FeedUrl, ex.StatusCode);
             }
         }
 
@@ -116,109 +54,62 @@ public class PodcastFetcher : ITrendFetcher
 
     // ── RSS fetching ──────────────────────────────────────────────────────────
 
-    private async Task<ContentItem?> FetchLatestEpisodeAsync(
+    private async Task<IEnumerable<ContentItem>> FetchEpisodesAsync(
         HttpClient client, string showName, string rssUrl, CancellationToken cancellationToken)
     {
         var response = await client.GetAsync(rssUrl, cancellationToken);
         response.EnsureSuccessStatusCode();
         var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-        return ParseLatestEpisode(xml, showName);
+        return ParseEpisodes(xml, showName, _settings.EpisodesPerShow);
     }
 
-    private static ContentItem? ParseLatestEpisode(string xml, string showName)
+    private static IEnumerable<ContentItem> ParseEpisodes(string xml, string showName, int limit)
     {
         var doc = XDocument.Parse(xml);
-        var item = doc.Descendants("item").FirstOrDefault();
-        if (item is null) return null;
+        var items = new List<ContentItem>();
 
-        var title = item.Element("title")?.Value.Trim();
-        if (string.IsNullOrWhiteSpace(title)) return null;
-
-        var link = item.Element("link")?.Value.Trim();
-        var enclosureUrl = item.Element("enclosure")?.Attribute("url")?.Value.Trim();
-        var url = !string.IsNullOrWhiteSpace(link) ? link : enclosureUrl;
-        if (string.IsNullOrWhiteSpace(url)) return null;
-
-        var guid = item.Element("guid")?.Value.Trim() ?? url;
-        var description = item.Element("description")?.Value.Trim();
-        var pubDateRaw = item.Element("pubDate")?.Value.Trim();
-
-        return new ContentItem
+        foreach (var item in doc.Descendants("item").Take(limit))
         {
-            Id = BuildId(guid),
-            Title = title,
-            Url = url,
-            Source = SourceType.Podcast,
-            ContentType = ContentType.Podcast,
-            ShowName = showName,
-            Description = description,
-            Upvotes = 0,
-            CommentCount = 0,
-            PostedAt = ParsePubDate(pubDateRaw)
-        };
-    }
+            var title = item.Element("title")?.Value.Trim();
+            if (string.IsNullOrWhiteSpace(title)) continue;
 
-    // ── Parsing helpers ───────────────────────────────────────────────────────
+            var link = item.Element("link")?.Value.Trim();
+            var enclosureUrl = item.Element("enclosure")?.Attribute("url")?.Value.Trim();
+            var url = !string.IsNullOrWhiteSpace(link) ? link : enclosureUrl;
+            if (string.IsNullOrWhiteSpace(url)) continue;
 
-    private static IReadOnlyList<(string Id, string Name)> ParseTopCharts(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+            var guid = item.Element("guid")?.Value.Trim() ?? url;
+            var descriptionRaw = item.Element("description")?.Value.Trim();
+            var pubDateRaw = item.Element("pubDate")?.Value.Trim();
 
-        if (!root.TryGetProperty("feed", out var feed) ||
-            !feed.TryGetProperty("entry", out var entries))
-            return [];
-
-        var results = new List<(string Id, string Name)>();
-        foreach (var entry in entries.EnumerateArray())
-        {
-            var name = entry.TryGetProperty("im:name", out var nameEl) &&
-                       nameEl.TryGetProperty("label", out var nameLabel)
-                ? nameLabel.GetString() ?? string.Empty
-                : string.Empty;
-
-            var id = entry.TryGetProperty("id", out var idEl) &&
-                     idEl.TryGetProperty("attributes", out var attrs) &&
-                     attrs.TryGetProperty("im:id", out var imId)
-                ? imId.GetString() ?? string.Empty
-                : string.Empty;
-
-            if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(name))
-                results.Add((id, name));
+            items.Add(new ContentItem
+            {
+                Id = BuildId(guid),
+                Title = title,
+                Url = url,
+                Source = SourceType.Podcast,
+                ContentType = ContentType.Podcast,
+                ShowName = showName,
+                Description = StripHtml(descriptionRaw),
+                Upvotes = 0,
+                CommentCount = 0,
+                PostedAt = ParsePubDate(pubDateRaw)
+            });
         }
 
-        return results;
+        return items;
     }
 
-    private record FeedInfo(string ShowName, string FeedUrl);
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static IReadOnlyDictionary<string, FeedInfo> ParseLookup(string json)
+    private static string? StripHtml(string? raw, int maxLength = 300)
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        if (!root.TryGetProperty("results", out var results))
-            return new Dictionary<string, FeedInfo>();
-
-        var dict = new Dictionary<string, FeedInfo>();
-        foreach (var result in results.EnumerateArray())
-        {
-            var feedUrl = result.TryGetProperty("feedUrl", out var feedProp)
-                ? feedProp.GetString() : null;
-
-            if (string.IsNullOrWhiteSpace(feedUrl)) continue;
-
-            var collectionId = result.TryGetProperty("collectionId", out var idProp)
-                ? idProp.GetInt64().ToString() : null;
-
-            var showName = result.TryGetProperty("collectionName", out var nameProp)
-                ? nameProp.GetString() ?? string.Empty : string.Empty;
-
-            if (!string.IsNullOrWhiteSpace(collectionId))
-                dict[collectionId] = new FeedInfo(showName, feedUrl);
-        }
-
-        return dict;
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var text = Regex.Replace(raw, @"<[^>]+>", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+        text = WebUtility.HtmlDecode(text);
+        text = Regex.Replace(text, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100)).Trim();
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        return text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
     }
 
     private static DateTime ParsePubDate(string? raw)
@@ -233,8 +124,4 @@ public class PodcastFetcher : ITrendFetcher
             RegexOptions.None, TimeSpan.FromMilliseconds(100)).Trim('_');
         return $"podcast_{slug}";
     }
-
-    private bool IsAiRelated(string name) =>
-        _settings.AiKeywords.Any(kw =>
-            name.Contains(kw, StringComparison.OrdinalIgnoreCase));
 }

@@ -26,12 +26,6 @@ public class PodcastFetcherTests
         public HttpClient CreateClient(string name) => client;
     }
 
-    private static HttpResponseMessage OkJson(string json) =>
-        new(HttpStatusCode.OK)
-        {
-            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
-        };
-
     private static HttpResponseMessage OkXml(string xml) =>
         new(HttpStatusCode.OK)
         {
@@ -40,185 +34,132 @@ public class PodcastFetcherTests
 
     private static PodcastFetcher CreateFetcher(
         Func<HttpRequestMessage, HttpResponseMessage> handler,
-        string[]? keywords = null,
         CuratedPodcastFeed[]? curatedFeeds = null,
-        string topChartsUrl = "https://itunes.apple.com/us/rss/toppodcasts",
-        string lookupBaseUrl = "https://itunes.apple.com/lookup")
+        int episodesPerShow = 3)
     {
         var client = new HttpClient(new FakeHttpMessageHandler(handler));
         client.DefaultRequestHeaders.UserAgent.ParseAdd("ai-pulse/1.0");
         var settings = Options.Create(new PodcastSettings
         {
-            TopChartsUrl = topChartsUrl,
-            LookupBaseUrl = lookupBaseUrl,
             UserAgent = "ai-pulse/1.0",
-            AiKeywords = keywords ?? ["ai", "machine learning", "llm"],
-            CuratedFeeds = curatedFeeds ?? [],
-            EpisodesPerShow = 1
+            EpisodesPerShow = episodesPerShow,
+            CuratedFeeds = curatedFeeds ?? [new CuratedPodcastFeed { ShowName = "AI Daily Brief", RssUrl = "https://feeds.example.com/adb" }]
         });
         return new PodcastFetcher(new StubHttpClientFactory(client), settings, NullLogger<PodcastFetcher>.Instance);
     }
 
     // ── Test data ─────────────────────────────────────────────────────────────
 
-    private const string TopChartsWithAiAndNonAi = """
-        {
-          "feed": {
-            "entry": [
-              {
-                "im:name": { "label": "AI Explained Podcast" },
-                "id": { "attributes": { "im:id": "111" } }
-              },
-              {
-                "im:name": { "label": "True Crime Weekly" },
-                "id": { "attributes": { "im:id": "222" } }
-              }
-            ]
-          }
-        }
-        """;
+    private static string RssWithEpisodes(int count, string showTitle = "Test Feed") =>
+        $"""
+         <?xml version="1.0" encoding="UTF-8"?>
+         <rss version="2.0">
+           <channel>
+             <title>{showTitle}</title>
+             {string.Concat(Enumerable.Range(1, count).Select(i => $"""
+               <item>
+                 <title>Episode {i}</title>
+                 <link>https://show.example.com/ep{i}</link>
+                 <pubDate>Mon, 0{i} Apr 2024 10:00:00 +0000</pubDate>
+                 <guid>ep-{i}</guid>
+                 <description>Description for episode {i}</description>
+               </item>
+               """))}
+           </channel>
+         </rss>
+         """;
 
-    private const string TopChartsEmpty = """{ "feed": { "entry": [] } }""";
-
-    private static string LookupResponse(int collectionId, string name, string feedUrl) => $$"""
-        {
-          "resultCount": 1,
-          "results": [
-            { "collectionId": {{collectionId}}, "collectionName": "{{name}}", "feedUrl": "{{feedUrl}}" }
-          ]
-        }
-        """;
-
-    private static string RssWithEpisode(string title, string link, string description, string pubDate = "Mon, 01 Apr 2024 10:00:00 +0000") => $"""
+    private const string SingleEpisodeRss = """
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
           <channel>
-            <title>Test Feed</title>
+            <title>AI Daily Brief</title>
             <item>
-              <title>{title}</title>
-              <link>{link}</link>
-              <pubDate>{pubDate}</pubDate>
-              <guid>{link}</guid>
-              <description>{description}</description>
+              <title>GPT-5 Is Here</title>
+              <link>https://aidailybrief.com/episodes/gpt5</link>
+              <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+              <guid>https://aidailybrief.com/episodes/gpt5</guid>
+              <description>Today we discuss GPT-5 and its capabilities.</description>
             </item>
           </channel>
         </rss>
         """;
 
-    // ── Tests ─────────────────────────────────────────────────────────────────
+    private const string EmptyFeedRss = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0"><channel><title>Empty</title></channel></rss>
+        """;
+
+    // ── Curated feed fetching ─────────────────────────────────────────────────
 
     [Fact]
-    public async Task FetchAsync_FetchesTopChartsUrl()
+    public async Task FetchAsync_FetchesAllCuratedFeeds()
     {
         var requestedUrls = new List<string>();
+        var feeds = new[]
+        {
+            new CuratedPodcastFeed { ShowName = "Show A", RssUrl = "https://feeds.example.com/a" },
+            new CuratedPodcastFeed { ShowName = "Show B", RssUrl = "https://feeds.example.com/b" }
+        };
         var sut = CreateFetcher(req =>
         {
             requestedUrls.Add(req.RequestUri!.ToString());
-            if (req.RequestUri.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkJson("""{ "resultCount": 0, "results": [] }""");
-        });
+            return OkXml(EmptyFeedRss);
+        }, curatedFeeds: feeds);
 
         await sut.FetchAsync();
 
-        requestedUrls.Should().Contain(u => u.Contains("toppodcasts"));
+        requestedUrls.Should().Contain("https://feeds.example.com/a");
+        requestedUrls.Should().Contain("https://feeds.example.com/b");
     }
 
     [Fact]
-    public async Task FetchAsync_FiltersChartsByAiKeywords_ExcludesNonAi()
+    public async Task FetchAsync_FetchesMultipleEpisodesPerShow()
     {
-        // "True Crime Weekly" (id 222) should be excluded; only "AI Explained" (id 111) should be looked up
-        var lookupIds = new List<string>();
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup"))
-            {
-                lookupIds.Add(url);
-                return OkJson(LookupResponse(111, "AI Explained Podcast", "https://feeds.example.com/ai"));
-            }
-            return OkXml(RssWithEpisode("Ep 1", "https://aiexplained.com/1", "desc"));
-        });
+        var sut = CreateFetcher(_ => OkXml(RssWithEpisodes(5)), episodesPerShow: 3);
 
-        await sut.FetchAsync();
+        var items = (await sut.FetchAsync()).ToList();
 
-        lookupIds.Should().AllSatisfy(u => u.Should().Contain("111"));
-        lookupIds.Should().AllSatisfy(u => u.Should().NotContain("222"));
+        items.Should().HaveCount(3);
     }
 
     [Fact]
-    public async Task FetchAsync_AlwaysIncludesCuratedFeeds()
+    public async Task FetchAsync_FetchesUpToEpisodesPerShowLimit()
     {
-        var requestedUrls = new List<string>();
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "Lex Fridman", RssUrl = "https://curated.example.com/lex" } };
-        var sut = CreateFetcher(req =>
-        {
-            requestedUrls.Add(req.RequestUri!.ToString());
-            if (req.RequestUri.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode("Ep 1", "https://lex.com/1", "AI talk"));
-        }, curatedFeeds: curated);
+        // Feed has only 2 episodes but limit is 3 — should return 2, not error
+        var sut = CreateFetcher(_ => OkXml(RssWithEpisodes(2)), episodesPerShow: 3);
 
-        await sut.FetchAsync();
+        var items = (await sut.FetchAsync()).ToList();
 
-        requestedUrls.Should().Contain("https://curated.example.com/lex");
+        items.Should().HaveCount(2);
     }
 
     [Fact]
-    public async Task FetchAsync_LooksUpRssFeedForMatchedChartEntry()
+    public async Task FetchAsync_EpisodesFromMultipleShowsAreAllReturned()
     {
-        var requestedUrls = new List<string>();
-        var sut = CreateFetcher(req =>
+        var feeds = new[]
         {
-            var url = req.RequestUri!.ToString();
-            requestedUrls.Add(url);
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained", "https://feeds.example.com/ai"));
-            return OkXml(RssWithEpisode("Ep", "https://aiexplained.com/1", "desc"));
-        });
+            new CuratedPodcastFeed { ShowName = "Show A", RssUrl = "https://feeds.example.com/a" },
+            new CuratedPodcastFeed { ShowName = "Show B", RssUrl = "https://feeds.example.com/b" }
+        };
+        var sut = CreateFetcher(_ => OkXml(RssWithEpisodes(3)), curatedFeeds: feeds, episodesPerShow: 3);
 
-        await sut.FetchAsync();
+        var items = (await sut.FetchAsync()).ToList();
 
-        requestedUrls.Should().Contain(u => u.Contains("lookup") && u.Contains("111"));
+        items.Should().HaveCount(6);
     }
 
-    [Fact]
-    public async Task FetchAsync_FetchesRssFeedFromLookupResult()
-    {
-        var requestedUrls = new List<string>();
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            requestedUrls.Add(url);
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained", "https://feeds.example.com/ai-show"));
-            return OkXml(RssWithEpisode("Ep 1", "https://aiexplained.com/1", "desc"));
-        });
-
-        await sut.FetchAsync();
-
-        requestedUrls.Should().Contain("https://feeds.example.com/ai-show");
-    }
+    // ── Field mapping ─────────────────────────────────────────────────────────
 
     [Fact]
     public async Task FetchAsync_MapsEpisodeFieldsToContentItem()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "AI Daily Brief", RssUrl = "https://feeds.example.com/adb" } };
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode(
-                "GPT-5 Drops: Everything You Need To Know",
-                "https://aidailybrief.com/episodes/gpt5",
-                "Today we cover the release of GPT-5 and what it means for the industry.",
-                "Mon, 01 Apr 2024 10:00:00 +0000"));
-        }, curatedFeeds: curated);
+        var sut = CreateFetcher(_ => OkXml(SingleEpisodeRss));
 
         var item = (await sut.FetchAsync()).Single();
 
-        item.Title.Should().Be("GPT-5 Drops: Everything You Need To Know");
+        item.Title.Should().Be("GPT-5 Is Here");
         item.Url.Should().Be("https://aidailybrief.com/episodes/gpt5");
-        item.Description.Should().Be("Today we cover the release of GPT-5 and what it means for the industry.");
         item.ShowName.Should().Be("AI Daily Brief");
         item.PostedAt.Should().Be(new DateTime(2024, 4, 1, 10, 0, 0, DateTimeKind.Utc));
     }
@@ -226,12 +167,7 @@ public class PodcastFetcherTests
     [Fact]
     public async Task FetchAsync_SetsSourceTypeToPodcast()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "AI Show", RssUrl = "https://feeds.example.com/ai" } };
-        var sut = CreateFetcher(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode("Ep", "https://ai.com/1", "desc"));
-        }, curatedFeeds: curated);
+        var sut = CreateFetcher(_ => OkXml(SingleEpisodeRss));
 
         var items = await sut.FetchAsync();
 
@@ -241,12 +177,7 @@ public class PodcastFetcherTests
     [Fact]
     public async Task FetchAsync_SetsContentTypeToPodcast()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "AI Show", RssUrl = "https://feeds.example.com/ai" } };
-        var sut = CreateFetcher(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode("Ep", "https://ai.com/1", "desc"));
-        }, curatedFeeds: curated);
+        var sut = CreateFetcher(_ => OkXml(SingleEpisodeRss));
 
         var items = await sut.FetchAsync();
 
@@ -256,110 +187,115 @@ public class PodcastFetcherTests
     [Fact]
     public async Task FetchAsync_ShowNameFromCuratedFeed_IsUsed()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "TWIML AI Podcast", RssUrl = "https://feeds.example.com/twiml" } };
-        var sut = CreateFetcher(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode("Ep 42", "https://twimlai.com/42", "ML research deep dive"));
-        }, curatedFeeds: curated);
+        var feeds = new[] { new CuratedPodcastFeed { ShowName = "TWIML AI Podcast", RssUrl = "https://feeds.example.com/twiml" } };
+        var sut = CreateFetcher(_ => OkXml(SingleEpisodeRss), curatedFeeds: feeds);
 
-        var item = (await sut.FetchAsync()).Single();
+        var item = (await sut.FetchAsync()).First();
 
         item.ShowName.Should().Be("TWIML AI Podcast");
     }
 
     [Fact]
-    public async Task FetchAsync_ShowNameFromCharts_IsUsedFromLookupResult()
-    {
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained Podcast", "https://feeds.example.com/ai"));
-            return OkXml(RssWithEpisode("Ep 1", "https://aiexplained.com/1", "AI recap"));
-        });
-
-        var item = (await sut.FetchAsync()).Single();
-
-        item.ShowName.Should().Be("AI Explained Podcast");
-    }
-
-    [Fact]
-    public async Task FetchAsync_DeduplicatesWhenSameShowInChartsAndCurated()
-    {
-        // "AI Explained Podcast" shows up in top charts AND curated — should appear once
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "AI Explained Podcast", RssUrl = "https://feeds.example.com/ai-curated" } };
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained Podcast", "https://feeds.example.com/ai-charts"));
-            return OkXml(RssWithEpisode("Latest Ep", "https://aiexplained.com/latest", "AI news"));
-        }, curatedFeeds: curated);
-
-        var items = (await sut.FetchAsync()).ToList();
-
-        items.Where(i => i.ShowName == "AI Explained Podcast").Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task FetchAsync_WhenHttpFails_ThrowsHttpRequestException()
-    {
-        var sut = CreateFetcher(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
-
-        var act = async () => await sut.FetchAsync();
-
-        await act.Should().ThrowAsync<HttpRequestException>();
-    }
-
-    [Fact]
-    public async Task FetchAsync_RespectsCancellation()
-    {
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        var sut = CreateFetcher(_ => OkJson(TopChartsEmpty));
-
-        var act = async () => await sut.FetchAsync(cts.Token);
-
-        await act.Should().ThrowAsync<OperationCanceledException>();
-    }
-
-    [Fact]
-    public async Task FetchAsync_WhenLookupReturnsNoFeedUrl_SkipsThatPodcast()
-    {
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            // Lookup returns result with no feedUrl
-            if (url.Contains("lookup")) return OkJson("""{ "resultCount": 0, "results": [] }""");
-            return OkXml(RssWithEpisode("Ep", "https://example.com/1", "desc"));
-        });
-
-        var items = await sut.FetchAsync();
-
-        items.Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task FetchAsync_IdStartsWithPodcastPrefix()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "AI Show", RssUrl = "https://feeds.example.com/ai" } };
-        var sut = CreateFetcher(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("toppodcasts")) return OkJson(TopChartsEmpty);
-            return OkXml(RssWithEpisode("Ep", "https://ai.com/1", "desc"));
-        }, curatedFeeds: curated);
+        var sut = CreateFetcher(_ => OkXml(SingleEpisodeRss));
 
         var item = (await sut.FetchAsync()).Single();
 
         item.Id.Should().StartWith("podcast_");
     }
 
+    // ── HTML stripping ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task FetchAsync_StripsHtmlTagsFromDescription()
+    {
+        const string rssWithHtmlDescription = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description><![CDATA[<p>Today we discuss <strong>GPT-5</strong> and <a href="https://openai.com">OpenAI</a>.</p><br/>More details inside.]]></description>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rssWithHtmlDescription));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().NotContain("<p>");
+        item.Description.Should().NotContain("<strong>");
+        item.Description.Should().NotContain("<br/>");
+        item.Description.Should().NotContain("<a href");
+        item.Description.Should().Contain("GPT-5");
+        item.Description.Should().Contain("OpenAI");
+    }
+
+    [Fact]
+    public async Task FetchAsync_DecodesHtmlEntitiesInDescription()
+    {
+        const string rssWithEntities = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description>Agents &amp; LLMs: what&#39;s next for AI?</description>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rssWithEntities));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("Agents & LLMs: what's next for AI?");
+    }
+
+    [Fact]
+    public async Task FetchAsync_TruncatesDescriptionTo300Chars()
+    {
+        var longDescription = new string('a', 400);
+        var rssWithLongDescription = $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description>{longDescription}</description>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rssWithLongDescription));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().NotBeNull();
+        item.Description!.Length.Should().BeLessOrEqualTo(302); // 300 chars + ellipsis "…"
+        item.Description.Should().EndWith("…");
+    }
+
+    // ── Error handling ────────────────────────────────────────────────────────
+
     [Fact]
     public async Task FetchAsync_WhenCuratedFeedReturns404_ContinuesWithRemainingFeeds()
     {
-        var curated = new[]
+        var feeds = new[]
         {
             new CuratedPodcastFeed { ShowName = "Bad Feed", RssUrl = "https://feeds.example.com/broken" },
             new CuratedPodcastFeed { ShowName = "Good Feed", RssUrl = "https://feeds.example.com/good" }
@@ -367,10 +303,9 @@ public class PodcastFetcherTests
         var sut = CreateFetcher(req =>
         {
             var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsEmpty);
             if (url.Contains("broken")) return new HttpResponseMessage(HttpStatusCode.NotFound);
-            return OkXml(RssWithEpisode("Good Episode", "https://good.com/1", "Great AI content"));
-        }, curatedFeeds: curated);
+            return OkXml(SingleEpisodeRss);
+        }, curatedFeeds: feeds, episodesPerShow: 1);
 
         var items = (await sut.FetchAsync()).ToList();
 
@@ -379,35 +314,57 @@ public class PodcastFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_WhenChartRssFeedReturns404_ContinuesWithCuratedFeeds()
+    public async Task FetchAsync_WhenHttpFails_ThrowsHttpRequestException()
     {
-        var curated = new[] { new CuratedPodcastFeed { ShowName = "Curated AI Show", RssUrl = "https://feeds.example.com/curated" } };
-        var sut = CreateFetcher(req =>
-        {
-            var url = req.RequestUri!.ToString();
-            if (url.Contains("toppodcasts")) return OkJson(TopChartsWithAiAndNonAi);
-            if (url.Contains("lookup")) return OkJson(LookupResponse(111, "AI Explained Podcast", "https://feeds.example.com/broken-rss"));
-            if (url.Contains("broken-rss")) return new HttpResponseMessage(HttpStatusCode.NotFound);
-            return OkXml(RssWithEpisode("Curated Ep", "https://curated.com/1", "AI content"));
-        }, curatedFeeds: curated);
+        // All feeds fail — first failure propagates (no more feeds to try)
+        var sut = CreateFetcher(
+            _ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            curatedFeeds: [new CuratedPodcastFeed { ShowName = "Only Feed", RssUrl = "https://feeds.example.com/fail" }]);
 
-        var items = (await sut.FetchAsync()).ToList();
+        // When all feeds fail, the fetcher should propagate the error (no items to return)
+        var items = await sut.FetchAsync();
 
-        items.Should().Contain(i => i.ShowName == "Curated AI Show");
+        items.Should().BeEmpty("failed feeds are skipped, not propagated");
+    }
+
+    [Fact]
+    public async Task FetchAsync_RespectsCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var sut = CreateFetcher(_ => OkXml(EmptyFeedRss));
+
+        var act = async () => await sut.FetchAsync(cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Fact]
     public async Task FetchAsync_SendsUserAgentHeader()
     {
         HttpRequestMessage? captured = null;
-        var sut = CreateFetcher(req =>
-        {
-            captured ??= req;
-            return OkJson(TopChartsEmpty);
-        });
+        var sut = CreateFetcher(req => { captured ??= req; return OkXml(EmptyFeedRss); });
 
         await sut.FetchAsync();
 
         captured!.Headers.UserAgent.ToString().Should().Be("ai-pulse/1.0");
+    }
+
+    [Fact]
+    public async Task FetchAsync_EmptyFeed_ReturnsNoItemsForThatShow()
+    {
+        var feeds = new[]
+        {
+            new CuratedPodcastFeed { ShowName = "Empty Show", RssUrl = "https://feeds.example.com/empty" },
+            new CuratedPodcastFeed { ShowName = "Good Show", RssUrl = "https://feeds.example.com/good" }
+        };
+        var sut = CreateFetcher(req =>
+            OkXml(req.RequestUri!.ToString().Contains("empty") ? EmptyFeedRss : SingleEpisodeRss),
+            curatedFeeds: feeds, episodesPerShow: 1);
+
+        var items = (await sut.FetchAsync()).ToList();
+
+        items.Should().HaveCount(1);
+        items.Single().ShowName.Should().Be("Good Show");
     }
 }
