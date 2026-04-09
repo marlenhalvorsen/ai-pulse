@@ -1,6 +1,6 @@
-using System.Net;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using HtmlAgilityPack;
 using AiPulse.Application.Interfaces;
 using AiPulse.Domain.Enums;
 using AiPulse.Domain.Models;
@@ -63,6 +63,8 @@ public class PodcastFetcher : ITrendFetcher
         return ParseEpisodes(xml, showName, _settings.EpisodesPerShow);
     }
 
+    private static readonly XNamespace Itunes = "http://www.itunes.com/dtds/podcast-1.0.dtd";
+
     private static IEnumerable<ContentItem> ParseEpisodes(string xml, string showName, int limit)
     {
         var doc = XDocument.Parse(xml);
@@ -79,7 +81,6 @@ public class PodcastFetcher : ITrendFetcher
             if (string.IsNullOrWhiteSpace(url)) continue;
 
             var guid = item.Element("guid")?.Value.Trim() ?? url;
-            var descriptionRaw = item.Element("description")?.Value.Trim();
             var pubDateRaw = item.Element("pubDate")?.Value.Trim();
 
             items.Add(new ContentItem
@@ -90,7 +91,7 @@ public class PodcastFetcher : ITrendFetcher
                 Source = SourceType.Podcast,
                 ContentType = ContentType.Podcast,
                 ShowName = showName,
-                Description = StripHtml(descriptionRaw),
+                Description = ResolveDescription(item),
                 Upvotes = 0,
                 CommentCount = 0,
                 PostedAt = ParsePubDate(pubDateRaw)
@@ -100,16 +101,57 @@ public class PodcastFetcher : ITrendFetcher
         return items;
     }
 
+    private static readonly string[] TranscriptMarkers = ["This is a transcript", "The timestamps in"];
+    private static readonly string[] SponsorPhrases = ["check out our sponsors", "brought to you by", "support this podcast"];
+
+    private static string? ResolveDescription(XElement item)
+    {
+        var summary = item.Element(Itunes + "summary")?.Value.Trim();
+        if (!string.IsNullOrWhiteSpace(summary))
+            return StripHtml(summary);
+
+        var subtitle = item.Element(Itunes + "subtitle")?.Value.Trim();
+        if (!string.IsNullOrWhiteSpace(subtitle))
+            return StripHtml(subtitle);
+
+        var description = item.Element("description")?.Value.Trim();
+        if (IsTranscript(description)) return null;
+        return StripHtml(description);
+    }
+
+    private static bool IsTranscript(string? text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        TranscriptMarkers.Any(m => text.StartsWith(m, StringComparison.OrdinalIgnoreCase));
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static string? StripHtml(string? raw, int maxLength = 300)
+    private static string? StripHtml(string? raw, int maxLength = 200)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        var text = Regex.Replace(raw, @"<[^>]+>", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100));
-        text = WebUtility.HtmlDecode(text);
+        var doc = new HtmlDocument();
+        doc.LoadHtml(raw);
+        var text = HtmlEntity.DeEntitize(doc.DocumentNode.InnerText);
+        text = RemoveSponsorText(text);
         text = Regex.Replace(text, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100)).Trim();
         if (string.IsNullOrWhiteSpace(text)) return null;
         return text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "…";
+    }
+
+    private static string RemoveSponsorText(string text)
+    {
+        var cutIndex = text.Length;
+
+        foreach (var phrase in SponsorPhrases)
+        {
+            var idx = text.IndexOf(phrase, StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0 && idx < cutIndex) cutIndex = idx;
+        }
+
+        // URL on its own line (newline followed by https://, or text starts with https://)
+        var urlMatch = Regex.Match(text, @"(?:^|\n)\s*https://", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+        if (urlMatch.Success && urlMatch.Index < cutIndex) cutIndex = urlMatch.Index;
+
+        return cutIndex < text.Length ? text[..cutIndex].TrimEnd() : text;
     }
 
     private static DateTime ParsePubDate(string? raw)

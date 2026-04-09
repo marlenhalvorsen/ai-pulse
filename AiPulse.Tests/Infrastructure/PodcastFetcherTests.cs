@@ -263,7 +263,7 @@ public class PodcastFetcherTests
     }
 
     [Fact]
-    public async Task FetchAsync_TruncatesDescriptionTo300Chars()
+    public async Task FetchAsync_TruncatesDescriptionFallbackTo200Chars()
     {
         var longDescription = new string('a', 400);
         var rssWithLongDescription = $"""
@@ -286,8 +286,200 @@ public class PodcastFetcherTests
         var item = (await sut.FetchAsync()).Single();
 
         item.Description.Should().NotBeNull();
-        item.Description!.Length.Should().BeLessOrEqualTo(302); // 300 chars + ellipsis "…"
+        item.Description!.Length.Should().BeLessOrEqualTo(201); // 200 chars + ellipsis "…"
         item.Description.Should().EndWith("…");
+    }
+
+    [Fact]
+    public async Task FetchAsync_UsesItunesSummaryForDescription_WhenPresent()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description>Long transcript text that goes on and on with sponsor reads...</description>
+                  <itunes:summary>A focused episode summary about transformer architecture.</itunes:summary>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("A focused episode summary about transformer architecture.");
+    }
+
+    [Fact]
+    public async Task FetchAsync_FallsBackToItunesSubtitle_WhenSummaryMissing()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description>Long transcript with sponsor reads...</description>
+                  <itunes:subtitle>Short subtitle for this episode.</itunes:subtitle>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("Short subtitle for this episode.");
+    }
+
+    [Fact]
+    public async Task FetchAsync_ItunesSummaryTakesPriorityOverSubtitle()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <description>Transcript...</description>
+                  <itunes:summary>The full itunes summary text.</itunes:summary>
+                  <itunes:subtitle>A shorter subtitle.</itunes:subtitle>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("The full itunes summary text.");
+    }
+
+    // ── Transcript detection ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task FetchAsync_DiscardsDescription_WhenStartsWithThisIsATranscript()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>Lex Fridman Podcast</title>
+                <item>
+                  <title>Episode 450</title>
+                  <link>https://lexfridman.com/ep450</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-450</guid>
+                  <description>This is a transcript of the conversation with my guest. The following is a machine-generated transcript...</description>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task FetchAsync_DiscardsDescription_WhenStartsWithTheTimestampsIn()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0">
+              <channel>
+                <title>AI Podcast</title>
+                <item>
+                  <title>Episode 12</title>
+                  <link>https://aipodcast.example.com/ep12</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-12</guid>
+                  <description>The timestamps in this episode refer to the YouTube version. 00:00 Intro...</description>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().BeNull();
+    }
+
+    // ── Sponsor stripping ─────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("Check out our sponsors")]
+    [InlineData("Brought to you by")]
+    [InlineData("Support this podcast")]
+    public async Task FetchAsync_TruncatesDescriptionAtSponsorKeyword(string sponsorPhrase)
+    {
+        var rss = $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <itunes:summary>We discuss the future of AI. {sponsorPhrase}: Acme Corp. Use code AIPULSE for 20% off.</itunes:summary>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("We discuss the future of AI.");
+        item.Description.Should().NotContain(sponsorPhrase);
+        item.Description.Should().NotContain("Acme Corp");
+    }
+
+    [Fact]
+    public async Task FetchAsync_TruncatesDescriptionAtSponsorUrl()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <title>AI Show</title>
+                <item>
+                  <title>Episode</title>
+                  <link>https://show.example.com/ep1</link>
+                  <pubDate>Mon, 01 Apr 2024 10:00:00 +0000</pubDate>
+                  <guid>ep-1</guid>
+                  <itunes:summary>A great discussion on model alignment.
+                  https://sponsor.com/aipulse
+                  Use code AIPULSE for 20% off.</itunes:summary>
+                </item>
+              </channel>
+            </rss>
+            """;
+        var sut = CreateFetcher(_ => OkXml(rss));
+
+        var item = (await sut.FetchAsync()).Single();
+
+        item.Description.Should().Be("A great discussion on model alignment.");
+        item.Description.Should().NotContain("https://");
+        item.Description.Should().NotContain("sponsor.com");
     }
 
     // ── Error handling ────────────────────────────────────────────────────────

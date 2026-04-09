@@ -125,6 +125,16 @@ public class TrendingCardTests : TestContext
     }
 
     [Fact]
+    public void TrendingCard_Podcast_HidesScoreBadge()
+    {
+        var item = MakePodcastItem();
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.FindAll(".trending-card__score").Should().BeEmpty();
+    }
+
+    [Fact]
     public void TrendingCard_WhenDescriptionNull_DoesNotRenderDescriptionElement()
     {
         var item = MakeItem("Title");  // non-podcast, no description

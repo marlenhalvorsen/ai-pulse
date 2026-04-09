@@ -4,6 +4,14 @@
 
 ---
 
+## How to work
+Use the skills pipeline for all new features:
+- `/pipeline feature: {description}` — full pipeline for one feature
+- Individual skills: `/write-tests`, `/implement`, `/review`, `/open-pr`
+- Always wait for human "continue" before starting next feature
+
+---
+
 ## What this project is
 
 A free, read-only web platform showing what the AI world is talking about right now. Trending content from Reddit and HackerNews, displayed in rows by content type. No login. No tracking. No algorithms.
