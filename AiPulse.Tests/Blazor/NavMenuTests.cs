@@ -31,6 +31,27 @@ public class NavMenuTests : TestContext
     }
 
     [Fact]
+    public void NavMenu_RendersPodcastLink()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        cut.FindAll(".sidebar__link")
+            .Should().Contain(el => el.GetAttribute("href") == "source/podcast");
+    }
+
+    [Fact]
+    public void NavMenu_PodcastLink_HasCorrectLabel()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        var link = cut.FindAll(".sidebar__link")
+            .FirstOrDefault(el => el.GetAttribute("href") == "source/podcast");
+
+        link.Should().NotBeNull();
+        link!.TextContent.Should().Contain("Podcast");
+    }
+
+    [Fact]
     public void NavMenu_RendersGitHubTrendingLink()
     {
         var cut = RenderComponent<NavMenu>();

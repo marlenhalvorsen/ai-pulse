@@ -1,19 +1,35 @@
 @using AiPulse.Application.DTOs
 
-<a class="trending-card" href="@Item.Url" target="_blank" rel="noopener noreferrer">
+<a class="@CardClass" href="@Item.Url" target="_blank" rel="noopener noreferrer">
     <div class="trending-card__title">@Item.Title</div>
+
+    @if (!string.IsNullOrWhiteSpace(Item.Description))
+    {
+        <div class="trending-card__description">@Item.Description</div>
+    }
+
     <div class="trending-card__meta">
         <span class="@BadgeClass">@Item.SourceName</span>
-        <span class="trending-card__score" title="Trend score">@((int)Item.TrendScore)</span>
+        @if (Item.ContentType != "Podcast")
+        {
+            <span class="trending-card__score" title="Trend score">@((int)Item.TrendScore)</span>
+        }
     </div>
-    <div class="trending-card__stats">
-        <span title="Upvotes">@Item.Upvotes ▲</span>
-        <span title="Comments">@Item.CommentCount 💬</span>
-    </div>
+
+    @if (Item.ContentType != "Podcast")
+    {
+        <div class="trending-card__stats">
+            <span title="Upvotes">@Item.Upvotes ▲</span>
+            <span title="Comments">@Item.CommentCount 💬</span>
+        </div>
+    }
 </a>
 
 @code {
     [Parameter, EditorRequired] public TrendingItemDto Item { get; set; } = null!;
+
+    private string CardClass =>
+        Item.ContentType == "Podcast" ? "trending-card trending-card--podcast" : "trending-card";
 
     private string BadgeClass =>
         IsRedditSource(Item.SourceName) ? "source-badge source-badge--reddit" :

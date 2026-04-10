@@ -220,6 +220,10 @@ a:hover { text-decoration: underline; }
     cursor: pointer;
 }
 
+.trending-card--podcast {
+    align-self: flex-start;
+}
+
 .trending-card:hover {
     border-color: #7eb8f7;
     background: #1e1e2a;

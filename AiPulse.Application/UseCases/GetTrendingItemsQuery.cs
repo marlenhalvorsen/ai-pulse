@@ -74,7 +74,8 @@ public class GetTrendingItemsQuery
             item.Upvotes,
             item.CommentCount,
             item.PostedAt,
-            GetRowLabel(item));
+            GetRowLabel(item),
+            item.Description);
 
     private static string GetRowLabel(ContentItem item) =>
         item.Source switch
@@ -84,6 +85,7 @@ public class GetTrendingItemsQuery
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "DevTo",
             SourceType.GitHub => "GitHub",
+            SourceType.Podcast => "Podcast",
             _ => item.ContentType.ToString()
         };
 
@@ -95,6 +97,7 @@ public class GetTrendingItemsQuery
             SourceType.ProductHunt => "ProductHunt",
             SourceType.DevTo => "Dev.to",
             SourceType.GitHub => "GitHub",
+            SourceType.Podcast => item.ShowName ?? "Podcast",
             _ => item.Source.ToString()
         };
 }

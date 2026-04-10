@@ -1,5 +1,7 @@
+using AiPulse.Application.Interfaces;
 using AiPulse.Application.UseCases;
 using AiPulse.Infrastructure;
+using AiPulse.Infrastructure.Fetchers;
 using AiPulse.Infrastructure.Jobs;
 using AiPulse.Infrastructure.Persistence;
 using AiPulse.Web.Api;
@@ -27,6 +29,16 @@ using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
 }
+
+_ = Task.Run(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var sp = scope.ServiceProvider;
+    var db = sp.GetRequiredService<AppDbContext>();
+    var fetcher = sp.GetRequiredService<IEnumerable<ITrendFetcher>>().OfType<PodcastFetcher>().Single();
+    var repo = sp.GetRequiredService<IContentRepository>();
+    await new PodcastDescriptionCleanup(db, fetcher, repo).RunAsync();
+});
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
 

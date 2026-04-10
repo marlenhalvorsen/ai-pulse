@@ -9,4 +9,5 @@ public record TrendingItemDto(
     int Upvotes,
     int CommentCount,
     DateTime PostedAt,
-    string ContentType);
+    string ContentType,
+    string? Description = null);
