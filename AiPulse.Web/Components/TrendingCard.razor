@@ -33,10 +33,12 @@
 
     private string BadgeClass =>
         IsRedditSource(Item.SourceName) ? "source-badge source-badge--reddit" :
+        Item.ContentType == "Podcast"   ? "source-badge source-badge--podcast" :
         Item.SourceName switch
         {
             "HackerNews"  => "source-badge source-badge--hackernews",
             "ProductHunt" => "source-badge source-badge--producthunt",
+            "Dev.to"      => "source-badge source-badge--devto",
             _             => "source-badge"
         };
 

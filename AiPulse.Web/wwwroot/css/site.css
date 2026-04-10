@@ -301,9 +301,11 @@ a:hover { text-decoration: underline; }
     white-space: nowrap;
 }
 
-.source-badge--reddit      { background: #ff4500; color: #fff; }
+.source-badge--reddit      { background: #e5342a; color: #fff; }
 .source-badge--hackernews  { background: #ff6600; color: #fff; }
-.source-badge--producthunt { background: #da552f; color: #fff; }
+.source-badge--producthunt { background: #3b82f6; color: #fff; }
+.source-badge--podcast     { background: #7c3aed; color: #fff; }
+.source-badge--devto       { background: #22c55e; color: #fff; }
 
 /* ── States ───────────────────────────────────────────────── */
 .loading, .error { color: #7a7a90; padding: 2rem 0; }
