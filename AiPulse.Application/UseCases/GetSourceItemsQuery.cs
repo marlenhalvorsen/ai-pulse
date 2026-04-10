@@ -57,6 +57,7 @@ public class GetSourceItemsQuery
             SourceType.Reddit => "Reddit",
             SourceType.HackerNews => "HackerNews",
             SourceType.ProductHunt => "ProductHunt",
+            SourceType.DevTo => "Dev.to",
             _ => item.Source.ToString()
         };
 }
