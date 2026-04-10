@@ -304,6 +304,7 @@ a:hover { text-decoration: underline; }
 .source-badge--reddit      { background: #ff4500; color: #fff; }
 .source-badge--hackernews  { background: #ff6600; color: #fff; }
 .source-badge--producthunt { background: #da552f; color: #fff; }
+.source-badge--podcast     { background: #7c3aed; color: #fff; }
 
 /* ── States ───────────────────────────────────────────────── */
 .loading, .error { color: #7a7a90; padding: 2rem 0; }
