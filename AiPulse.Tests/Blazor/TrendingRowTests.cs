@@ -69,7 +69,7 @@ public class TrendingRowTests : TestContext
 
     [Theory]
     [InlineData("Video", "Videos")]
-    [InlineData("Podcast", "Podcasts")]
+    [InlineData("Podcast", "🟣 Podcasts")]
     [InlineData("Article", "Articles")]
     [InlineData("Newsletter", "Newsletters")]
     [InlineData("ResearchPaper", "Research")]

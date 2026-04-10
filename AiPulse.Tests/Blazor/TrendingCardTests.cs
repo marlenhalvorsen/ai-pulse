@@ -135,6 +135,17 @@ public class TrendingCardTests : TestContext
     }
 
     [Fact]
+    public void TrendingCard_DevToSource_ShowsDevToBadge()
+    {
+        var item = MakeItem("Some title", "https://dev.to/article", sourceName: "Dev.to");
+
+        var cut = RenderComponent<TrendingCard>(p => p.Add(c => c.Item, item));
+
+        cut.Find(".source-badge").ClassList.Should().Contain("source-badge--devto",
+            "Dev.to source should show a Dev.to-coloured badge");
+    }
+
+    [Fact]
     public void TrendingCard_WhenDescriptionNull_DoesNotRenderDescriptionElement()
     {
         var item = MakeItem("Title");  // non-podcast, no description
