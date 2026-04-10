@@ -141,6 +141,18 @@ public class SourceEndpointTests : IClassFixture<SourceEndpointTests.ApiFactory>
             Times.Once);
     }
 
+    [Fact]
+    public async Task GetSource_DevToItem_ShowsDevToAsSourceName()
+    {
+        var client = CreateClient([MakeItem("d1", SourceType.DevTo)]);
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/source/devto");
+
+        var items = json.GetProperty("items");
+        items.GetArrayLength().Should().BeGreaterThan(0);
+        items[0].GetProperty("sourceName").GetString().Should().Be("Dev.to",
+            "Dev.to source name must match the display string used by TrendingCard badge logic");
+    }
+
     private static ContentItem MakeItem(string id, SourceType source) => new()
     {
         Id = id,
