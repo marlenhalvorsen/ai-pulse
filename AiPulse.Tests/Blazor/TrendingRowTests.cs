@@ -76,6 +76,7 @@ public class TrendingRowTests : TestContext
     [InlineData("Discussion", "Discussions")]
     [InlineData("DevTo", "🟢 Dev.to")]
     [InlineData("GitHub", "⚫ GitHub Trending")]
+    [InlineData("ProductHunt", "🔵 Product Hunt")]
     public void TrendingRow_HeadingLabel_MatchesContentType(string contentType, string expectedHeading)
     {
         var row = new TrendingRowDto(contentType, [MakeItem("x")]);

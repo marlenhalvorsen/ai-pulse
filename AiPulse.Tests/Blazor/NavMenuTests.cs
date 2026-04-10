@@ -52,6 +52,18 @@ public class NavMenuTests : TestContext
     }
 
     [Fact]
+    public void NavMenu_ProductHuntLink_HasBlueCircleIcon()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        var link = cut.FindAll(".sidebar__link")
+            .FirstOrDefault(el => el.GetAttribute("href") == "source/producthunt");
+
+        link.Should().NotBeNull();
+        link!.QuerySelector(".sidebar__link-icon")!.TextContent.Should().Be("🔵");
+    }
+
+    [Fact]
     public void NavMenu_RendersGitHubTrendingLink()
     {
         var cut = RenderComponent<NavMenu>();
