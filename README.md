@@ -1,5 +1,7 @@
 # AI Pulse
 
+[![CI](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml)
+
 > ⚠️ **Under active development.** This project is being built in public using Claude Code. Expect breaking changes.
 
 > **What the AI world is talking about right now.**
