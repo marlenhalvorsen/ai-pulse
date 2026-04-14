@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using AiPulse.Api.Api;
 using AiPulse.Api.Middleware;
 using AiPulse.Application.Interfaces;
@@ -18,9 +20,23 @@ builder.Services.AddScoped<GetSourceItemsQuery>();
 builder.Services.AddHangfire(config => config.UseInMemoryStorage());
 builder.Services.AddHangfireServer();
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins("http://localhost:5243").AllowAnyHeader().AllowAnyMethod()));
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("api", limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 0;
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 var app = builder.Build();
 
@@ -47,6 +63,7 @@ if (!app.Environment.IsDevelopment())
 app.UseCors();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 
 app.MapTrendingEndpoints();
 

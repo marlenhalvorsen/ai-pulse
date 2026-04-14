@@ -27,7 +27,7 @@ public static class TrendingEndpoints
 
             var result = await query.ExecuteAsync(contentType, limit, window);
             return Results.Ok(result);
-        });
+        }).RequireRateLimiting("api");
 
         app.MapGet("/api/source/{sourceName}", async (
             string sourceName,
@@ -40,7 +40,7 @@ public static class TrendingEndpoints
 
             var result = await query.ExecuteAsync(source, limit, window);
             return Results.Ok(result);
-        });
+        }).RequireRateLimiting("api");
 
         return app;
     }
