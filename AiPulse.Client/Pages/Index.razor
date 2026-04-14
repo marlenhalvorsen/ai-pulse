@@ -1,8 +1,6 @@
 @page "/"
 @using AiPulse.Application.DTOs
-@using AiPulse.Application.UseCases
-@using AiPulse.Web.Components
-@inject GetTrendingItemsQuery TrendingQuery
+@inject HttpClient Http
 
 <PageTitle>AI Pulse — What the AI world is talking about right now</PageTitle>
 
@@ -37,8 +35,8 @@ else
     {
         try
         {
-            var response = await TrendingQuery.ExecuteAsync();
-            _rows = response.Rows
+            var response = await Http.GetFromJsonAsync<TrendingResponse>("/api/trending");
+            _rows = (response?.Rows ?? [])
                 .OrderBy(r => Array.IndexOf(RowOrder, r.ContentType) is var i && i == -1 ? int.MaxValue : i)
                 .ToList();
         }

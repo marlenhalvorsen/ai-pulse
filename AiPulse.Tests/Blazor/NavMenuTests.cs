@@ -1,4 +1,4 @@
-using AiPulse.Web.Shared;
+using AiPulse.Client.Shared;
 using Bunit;
 using FluentAssertions;
 

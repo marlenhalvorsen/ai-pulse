@@ -2,7 +2,7 @@ using AiPulse.Application.DTOs;
 using AiPulse.Application.UseCases;
 using AiPulse.Domain.Enums;
 
-namespace AiPulse.Web.Api;
+namespace AiPulse.Api.Api;
 
 public static class TrendingEndpoints
 {

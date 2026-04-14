@@ -1,4 +1,4 @@
-namespace AiPulse.Web.Middleware;
+namespace AiPulse.Api.Middleware;
 
 public class SecurityHeadersMiddleware
 {

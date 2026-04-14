@@ -1,15 +1,13 @@
+using AiPulse.Api.Api;
+using AiPulse.Api.Middleware;
 using AiPulse.Application.Interfaces;
 using AiPulse.Application.UseCases;
 using AiPulse.Infrastructure;
 using AiPulse.Infrastructure.Fetchers;
 using AiPulse.Infrastructure.Jobs;
 using AiPulse.Infrastructure.Persistence;
-using AiPulse.Web.Api;
-using AiPulse.Web.Middleware;
 using Hangfire;
 using Hangfire.InMemory;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,11 +15,12 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<GetTrendingItemsQuery>();
 builder.Services.AddScoped<GetSourceItemsQuery>();
 
-builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
-
 builder.Services.AddHangfire(config => config.UseInMemoryStorage());
 builder.Services.AddHangfireServer();
+
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
@@ -45,12 +44,11 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 
+app.UseCors();
 app.UseStaticFiles();
 app.UseRouting();
 
 app.MapTrendingEndpoints();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
 
 app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrendRefreshJob>(
     "trend-refresh",

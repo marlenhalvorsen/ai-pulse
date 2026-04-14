@@ -1,9 +1,7 @@
 @page "/source/{sourceName}"
 @using AiPulse.Application.DTOs
-@using AiPulse.Application.UseCases
 @using AiPulse.Domain.Enums
-@using AiPulse.Web.Components
-@inject GetSourceItemsQuery SourceQuery
+@inject HttpClient Http
 
 <PageTitle>@PageTitle — AI Pulse</PageTitle>
 
@@ -61,7 +59,7 @@ else
         _error = null;
         _items = [];
 
-        if (!Enum.TryParse<SourceType>(SourceName, ignoreCase: true, out var source))
+        if (!Enum.TryParse<SourceType>(SourceName, ignoreCase: true, out _))
         {
             _invalidSource = true;
             _loading = false;
@@ -70,8 +68,8 @@ else
 
         try
         {
-            var response = await SourceQuery.ExecuteAsync(source);
-            _items = response.Items;
+            var response = await Http.GetFromJsonAsync<SourceResponse>($"/api/source/{SourceName}");
+            _items = response?.Items ?? [];
         }
         catch (Exception)
         {
