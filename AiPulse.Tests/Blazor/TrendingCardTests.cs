@@ -1,5 +1,5 @@
 using AiPulse.Application.DTOs;
-using AiPulse.Web.Components;
+using AiPulse.Client.Components;
 using Bunit;
 using FluentAssertions;
 

@@ -8,14 +8,15 @@ public class LayerBoundaryTests
     private const string DomainNs = "AiPulse.Domain";
     private const string ApplicationNs = "AiPulse.Application";
     private const string InfrastructureNs = "AiPulse.Infrastructure";
-    private const string WebNs = "AiPulse.Web";
+    private const string ApiNs = "AiPulse.Api";
+    private const string ClientNs = "AiPulse.Client";
 
     [Fact]
     public void Domain_ShouldNotDependOnAnyOtherLayer()
     {
         var result = Types.InAssembly(typeof(AiPulse.Domain.Models.ContentItem).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny(ApplicationNs, InfrastructureNs, WebNs)
+            .HaveDependencyOnAny(ApplicationNs, InfrastructureNs, ApiNs, ClientNs)
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(
@@ -24,28 +25,28 @@ public class LayerBoundaryTests
     }
 
     [Fact]
-    public void Application_ShouldNotDependOnInfrastructureOrWeb()
+    public void Application_ShouldNotDependOnInfrastructureOrPresentationLayers()
     {
         var result = Types.InAssembly(typeof(AiPulse.Application.Interfaces.ITrendFetcher).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny(InfrastructureNs, WebNs)
+            .HaveDependencyOnAny(InfrastructureNs, ApiNs, ClientNs)
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(
-            because: "Application must not reference Infrastructure or Web; failing types: {0}",
+            because: "Application must not reference Infrastructure or presentation layers; failing types: {0}",
             string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     [Fact]
-    public void Infrastructure_ShouldNotDependOnWeb()
+    public void Infrastructure_ShouldNotDependOnPresentationLayers()
     {
         var result = Types.InAssembly(typeof(AiPulse.Infrastructure.Fetchers.RedditFetcher).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny(WebNs)
+            .HaveDependencyOnAny(ApiNs, ClientNs)
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(
-            because: "Infrastructure must not reference Web; failing types: {0}",
+            because: "Infrastructure must not reference Api or Client; failing types: {0}",
             string.Join(", ", result.FailingTypeNames ?? []));
     }
 
@@ -96,17 +97,17 @@ public class LayerBoundaryTests
     }
 
     [Fact]
-    public void Web_ShouldNotDirectlyInstantiateInfrastructureTypes()
+    public void Api_ShouldNotDirectlyInstantiateInfrastructureFetchers()
     {
-        var result = Types.InAssembly(typeof(AiPulse.Web.Middleware.SecurityHeadersMiddleware).Assembly)
+        var result = Types.InAssembly(typeof(AiPulse.Api.Middleware.SecurityHeadersMiddleware).Assembly)
             .That()
-            .DoNotResideInNamespace($"{WebNs}.Program")
+            .DoNotResideInNamespace($"{ApiNs}.Program")
             .ShouldNot()
             .HaveDependencyOn($"{InfrastructureNs}.Fetchers")
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(
-            because: "Web layer must not directly reference Infrastructure.Fetchers; failing types: {0}",
+            because: "Api layer must not directly reference Infrastructure.Fetchers; failing types: {0}",
             string.Join(", ", result.FailingTypeNames ?? []));
     }
 }
