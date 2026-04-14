@@ -54,8 +54,8 @@ The AI world moves fast. New papers, tools, videos, and debates emerge daily —
 
 | Concern | Choice |
 |---|---|
-| Backend | C# .NET 8 — ASP.NET Core Web API |
-| Frontend | Blazor Server / Razor Pages |
+| API | C# .NET 8 — ASP.NET Core Web API (`AiPulse.Api`) |
+| Frontend | Blazor WASM hosted (`AiPulse.Client`) |
 | Database | SQLite via Entity Framework Core |
 | Background Jobs | Hangfire |
 | Testing | xUnit + Moq + FluentAssertions |
@@ -69,8 +69,8 @@ The AI world moves fast. New papers, tools, videos, and debates emerge daily —
 git clone git@github.com:marlenhalvorsen/ai-pulse.git
 cd ai-pulse
 
-# Run the app
-dotnet run --project AiPulse.Web
+# Run the API (serves the Blazor WASM client at http://localhost:5293)
+dotnet run --project AiPulse.Api
 
 # Run tests
 dotnet test

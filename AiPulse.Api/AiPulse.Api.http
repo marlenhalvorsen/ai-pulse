@@ -1,6 +1,6 @@
 @AiPulse.Api_HostAddress = http://localhost:5293
 
-GET {{AiPulse.Api_HostAddress}}/weatherforecast/
+GET {{AiPulse.Api_HostAddress}}/api/trending
 Accept: application/json
 
 ###
