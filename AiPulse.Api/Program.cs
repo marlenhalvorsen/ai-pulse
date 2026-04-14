@@ -20,7 +20,7 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+        policy.WithOrigins("http://localhost:5243").AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
