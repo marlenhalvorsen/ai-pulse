@@ -1,4 +1,4 @@
-name: Deploy API to Azure App Service
+name: Deploy API to Oracle Cloud VM
 
 on:
   push:
@@ -19,11 +19,27 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Publish AiPulse.Api
-        run: dotnet publish AiPulse.Api -c Release -o publish
+        run: dotnet publish AiPulse.Api -c Release -r linux-x64 --self-contained false -o publish
 
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
+      - name: Copy files to VM
+        uses: appleboy/scp-action@v0.1.7
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publish
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          source: publish/
+          target: /opt/ai-pulse/staging
+          strip_components: 1
+
+      - name: Swap and restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            sudo systemctl stop ai-pulse-api || true
+            sudo rm -rf /opt/ai-pulse/app
+            sudo mv /opt/ai-pulse/staging /opt/ai-pulse/app
+            sudo systemctl start ai-pulse-api
+            sudo systemctl is-active --quiet ai-pulse-api
