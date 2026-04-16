@@ -24,9 +24,9 @@ jobs:
       - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.OCI_SSH_HOST }}
-          username: ${{ secrets.OCI_SSH_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
           source: publish/
           target: /opt/ai-pulse/staging
           strip_components: 1
@@ -34,9 +34,9 @@ jobs:
       - name: Swap and restart service
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.OCI_SSH_HOST }}
-          username: ${{ secrets.OCI_SSH_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             sudo systemctl stop ai-pulse-api || true
             sudo rm -rf /opt/ai-pulse/app
