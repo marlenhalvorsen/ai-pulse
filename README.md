@@ -4,6 +4,8 @@
 [![Tests](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml)
 
 > ⚠️ **Under active development.** This project is being built in public using Claude Code. Expect breaking changes.
+>
+> **Current status:** The frontend (`AiPulse.Client`) is deployed to Cloudflare Pages. The API (`AiPulse.Api`) currently runs locally — production API hosting is designed and documented but not yet live.
 
 > **What the AI world is talking about right now.**
 
@@ -82,12 +84,14 @@ Requirements: [.NET 8 SDK](https://dotnet.microsoft.com/download)
 
 ## Production Deployment
 
-AI Pulse is deployed across two platforms:
+> **Status:** `AiPulse.Client` is live on Cloudflare Pages. `AiPulse.Api` production hosting is documented below and ready to deploy — the VM setup and secrets configuration are the remaining steps before it goes live.
 
-| Component | Platform | How |
-|---|---|---|
-| `AiPulse.Api` | Oracle Cloud VM (free tier) | GitHub Actions → SSH → systemd |
-| `AiPulse.Client` | Cloudflare Pages | GitHub Actions → `cloudflare/pages-action` |
+The intended production setup:
+
+| Component | Platform | Status | How |
+|---|---|---|---|
+| `AiPulse.Api` | Oracle Cloud VM (free tier) | Not yet live | GitHub Actions → SSH → systemd |
+| `AiPulse.Client` | Cloudflare Pages | Live | GitHub Actions → `cloudflare/pages-action` |
 
 ### Architecture
 
