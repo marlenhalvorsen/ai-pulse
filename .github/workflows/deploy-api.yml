@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    if: false # disabled — VM not yet configured; re-enable when Oracle Cloud setup is complete
     runs-on: ubuntu-latest
     permissions:
       contents: read
