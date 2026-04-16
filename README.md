@@ -80,6 +80,84 @@ Requirements: [.NET 8 SDK](https://dotnet.microsoft.com/download)
 
 ---
 
+## Production Deployment
+
+AI Pulse is deployed across two platforms:
+
+| Component | Platform | How |
+|---|---|---|
+| `AiPulse.Api` | Oracle Cloud VM (free tier) | GitHub Actions → SSH → systemd |
+| `AiPulse.Client` | Cloudflare Pages | GitHub Actions → `cloudflare/pages-action` |
+
+### Architecture
+
+```
+Browser → Cloudflare Pages (static WASM)
+               ↓ API calls
+         Cloudflare Tunnel → Oracle Cloud VM → AiPulse.Api (systemd)
+                                                     ↓
+                                               SQLite + Hangfire
+```
+
+The Blazor WASM client is served as static files from Cloudflare Pages. API calls go to `AiPulse.Api` running on an Oracle Cloud free-tier VM, exposed via a Cloudflare Tunnel (no open inbound ports on the VM).
+
+### GitHub Actions workflows
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | Push / PR to `main` | `dotnet build` + `dotnet test` |
+| `tests.yml` | Push / PR to `main` | Full test suite |
+| `deploy-api.yml` | Push to `main` | Publishes `AiPulse.Api`, copies to VM via SCP, restarts systemd service |
+| `deploy.yml` | Push to `main` | Publishes `AiPulse.Client`, deploys static files to Cloudflare Pages |
+
+### Secrets required
+
+**API deploy** (`ORACLE_*` + `CLOUDFLARE_*`):
+
+| Secret | Description |
+|---|---|
+| `ORACLE_HOST` | VM public IP |
+| `ORACLE_USER` | SSH user (`ubuntu` or `opc`) |
+| `ORACLE_SSH_KEY` | Private key (PEM, full contents) |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Pages edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+
+### VM setup (one-time)
+
+```bash
+# Install .NET 8 runtime
+sudo apt install -y dotnet-runtime-8.0
+
+# Create app directory
+sudo mkdir -p /opt/ai-pulse/app
+
+# Create systemd service
+sudo tee /etc/systemd/system/ai-pulse-api.service <<EOF
+[Unit]
+Description=AI Pulse API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ai-pulse/app
+ExecStart=/usr/bin/dotnet /opt/ai-pulse/app/AiPulse.Api.dll
+Restart=always
+RestartSec=10
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable --now ai-pulse-api
+
+# Install and configure Cloudflare Tunnel
+curl -L https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-archive-keyring.gpg
+# Then: cloudflared tunnel login && cloudflared tunnel create ai-pulse && cloudflared tunnel route dns ai-pulse <your-domain>
+```
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please follow the project's Git workflow:
