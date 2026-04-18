@@ -6,7 +6,7 @@
 
 ## 1. Vision
 
-The AI world moves fast. New papers, tools, videos, podcasts, and debates emerge daily — scattered across Reddit, HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about **right now**, across all formats, ranked by real social momentum rather than all-time popularity.
+The AI world moves fast. New papers, tools, videos, podcasts, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about **right now**, across all formats, ranked by real social momentum rather than all-time popularity.
 
 **AI Pulse** solves this. The trending signal is: *what are people sharing and discussing in the last 7 days*, not what has the most lifetime views.
 
@@ -16,31 +16,34 @@ The AI world moves fast. New papers, tools, videos, podcasts, and debates emerge
 
 | Concern | Choice |
 |---|---|
-| Backend | C# .NET 8 — ASP.NET Core Web API (minimal API style) |
-| Frontend | Blazor Server (single deployable unit) |
+| API | C# .NET 8 — ASP.NET Core Web API, minimal API style (`AiPulse.Api`) |
+| Frontend | Blazor WASM (`AiPulse.Client`) |
 | Database | SQLite via Entity Framework Core |
-| Background Jobs | Hangfire (in-process, periodic Reddit + HN fetches) |
-| HTTP Client | `IHttpClientFactory` + Polly retry/circuit-breaker |
+| Background Jobs | Hangfire with SQLite storage (persists across restarts) |
+| HTTP Client | `IHttpClientFactory` per named client |
 | Testing | xUnit + Moq + FluentAssertions + NetArchTest |
-| Hosting | Self-contained .NET publish — Linux/Windows VPS |
+| API hosting | Oracle Cloud free-tier VM · Cloudflare Tunnel · systemd |
+| Frontend hosting | Cloudflare Pages |
+| CI/CD | GitHub Actions |
 
 ---
 
 ## 3. Architecture & Engineering Principles
 
-### Layer Map (SoC)
+### Layer Map
 
-Strict dependency rule: **Domain ← Application ← Infrastructure ← Web**
+Strict dependency rule: **Domain ← Application ← Infrastructure ← Api**
 
 ```
-AiPulse.Domain          # Pure models, no dependencies
+AiPulse.Domain          # Pure models, enums — no dependencies
 AiPulse.Application     # Use cases, interfaces, DTOs — references Domain only
-AiPulse.Infrastructure  # Reddit client, HN client, EF Core, Hangfire — references Application
-AiPulse.Web             # ASP.NET host, DI wiring, Blazor pages — references Application only
+AiPulse.Infrastructure  # Fetchers, EF Core, Hangfire — references Application
+AiPulse.Api             # ASP.NET host, DI wiring, endpoints — references Application
+AiPulse.Client          # Blazor WASM frontend — references Application + Domain
 AiPulse.Tests           # All tests — xUnit + Moq + NetArchTest
 ```
 
-Dependency rule enforced by .csproj project references. Web never references Infrastructure by type.
+Dependency rule enforced by .csproj project references. `AiPulse.Api` never references Infrastructure by type.
 
 ### File Structure
 
@@ -49,35 +52,70 @@ AiPulse/
   AiPulse.Domain/
     Models/ContentItem.cs
     Models/TrendScore.cs
-    Enums/ContentType.cs          # Video, Podcast, Article, Newsletter, ResearchPaper, Discussion
-    Enums/SourceType.cs           # Reddit, HackerNews
+    Enums/ContentType.cs      # Video, Podcast, Article, Newsletter, ResearchPaper, Discussion
+    Enums/SourceType.cs       # HackerNews, DevTo, GitHub, ProductHunt, Podcast, Reddit
   AiPulse.Application/
-    Interfaces/ITrendFetcher.cs
-    Interfaces/IContentRepository.cs
-    Interfaces/ITrendingQuery.cs
-    UseCases/GetTrendingItemsQuery.cs
+    Interfaces/
+      ITrendFetcher.cs
+      IContentRepository.cs
+      ITrendingQuery.cs
+    UseCases/
+      GetTrendingItemsQuery.cs
+      GetSourceItemsQuery.cs
     DTOs/TrendingItemDto.cs
-    Services/TrendScoreCalculator.cs
-    Services/UrlClassifier.cs
+    Services/
+      TrendScoreCalculator.cs
+      UrlClassifier.cs
   AiPulse.Infrastructure/
-    Fetchers/RedditFetcher.cs
-    Fetchers/HackerNewsFetcher.cs
-    Persistence/AppDbContext.cs
-    Persistence/ContentRepository.cs
-    Jobs/TrendRefreshJob.cs
+    Fetchers/
+      HackerNewsFetcher.cs
+      DevToFetcher.cs
+      GitHubTrendingFetcher.cs
+      ProductHuntFetcher.cs
+      PodcastFetcher.cs
+      RedditFetcher.cs          # present but not reliable in production
+    Persistence/
+      AppDbContext.cs
+      ContentRepository.cs
+    Jobs/
+      TrendRefreshJob.cs
+      PodcastDescriptionCleanup.cs
+    Configuration/              # typed settings classes per source
     DependencyInjection.cs
-  AiPulse.Web/
+  AiPulse.Api/
     Program.cs
-    Pages/Index.razor              # Row-based trending layout
-    Api/TrendingEndpoints.cs       # GET /api/trending
+    Api/
+      TrendingEndpoints.cs      # GET /api/trending, GET /api/source/{name}
+      IngestEndpoints.cs        # POST /api/ingest/reddit
     Middleware/SecurityHeadersMiddleware.cs
     appsettings.json
+  AiPulse.Client/
+    Pages/
+      Index.razor               # Row-based trending layout
+      Source.razor              # Per-source view
+    Components/
+      TrendingRow.razor
+      TrendingCard.razor
+      SiteLogo.razor
+    wwwroot/
+      appsettings.json          # ApiBaseUrl
   AiPulse.Tests/
-    Domain/TrendScoreCalculatorTests.cs
-    Domain/UrlClassifierTests.cs
-    Infrastructure/RedditFetcherTests.cs
-    Infrastructure/HackerNewsFetcherTests.cs
-    Api/TrendingEndpointTests.cs
+    Domain/
+      TrendScoreCalculatorTests.cs
+      UrlClassifierTests.cs
+    Infrastructure/
+      HackerNewsFetcherTests.cs
+      DevToFetcherTests.cs
+      GitHubTrendingFetcherTests.cs
+      ProductHuntFetcherTests.cs
+      PodcastFetcherTests.cs
+      RedditFetcherTests.cs
+      ContentRepositoryTests.cs
+      TrendRefreshJobTests.cs
+    Api/
+      TrendingEndpointTests.cs
+      SourceEndpointTests.cs
+      IngestEndpointTests.cs
     Architecture/LayerBoundaryTests.cs
 ```
 
@@ -85,59 +123,54 @@ AiPulse/
 
 | Principle | How it applies |
 |---|---|
-| **S** Single Responsibility | `RedditFetcher` only fetches. `UrlClassifier` only classifies. `TrendScoreCalculator` only scores. |
+| **S** Single Responsibility | Each fetcher fetches one source. `UrlClassifier` only classifies. `TrendScoreCalculator` only scores. |
 | **O** Open/Closed | Adding a new source = implement `ITrendFetcher`. No existing class modified. |
-| **L** Liskov Substitution | `MockTrendFetcher` and `RedditFetcher` are interchangeable — both pass contract tests. |
+| **L** Liskov Substitution | `MockTrendFetcher` and all real fetchers are interchangeable — all pass contract tests. |
 | **I** Interface Segregation | `ITrendFetcher` (fetch), `IContentRepository` (read/write), `ITrendingQuery` (read-only). No fat interfaces. |
 | **D** Dependency Inversion | All dependencies injected via constructor. `new ConcreteClass()` only in `Program.cs`. |
-
-### DRY
-
-- `TrendScoreCalculator` — one class, one place for scoring logic
-- `UrlClassifier` — one class, one place for URL→ContentType mapping
-- Subreddit lists, API base URLs, decay constants — in `appsettings.json`, never hardcoded
-- Shared test fixtures extracted into `TestBase`
 
 ---
 
 ## 4. MoSCoW Prioritisation
 
-### ✅ Must Have
+### ✅ Must Have (complete)
 
-- GitHub Actions CI/CD — runs `dotnet build` + `dotnet test` on every PR, blocks merge if tests fail
+- GitHub Actions CI/CD — `dotnet build` + `dotnet test` on every PR, blocks merge on failure
 - TrendScoreCalculator with 7-day decay window
-- RedditFetcher (r/MachineLearning, r/artificial, r/ChatGPT, r/LocalLLaMA, r/singularity)
 - HackerNewsFetcher (topstories + beststories, AI keyword filter)
+- DevToFetcher (AI tags)
+- GitHubTrendingFetcher (AI keyword filter)
+- ProductHuntFetcher
+- PodcastFetcher (curated RSS feeds)
 - UrlClassifier mapping links to ContentType
 - ContentRepository (EF Core + SQLite)
-- TrendRefreshJob via Hangfire (every 30 minutes)
-- Public read-only API: `GET /api/trending?type=&limit=`
-- Blazor frontend — row-based layout: Podcasts · Videos · Articles · Newsletters · Research · Discussions
-- Responsive — works on mobile and desktop
-- Privacy by Design: no cookies, no tracking, no PII collected anywhere
-- Security headers middleware
-- Full TDD test suite for all domain logic and API endpoints
+- TrendRefreshJob via Hangfire (every 30 minutes, SQLite-backed)
+- Public read-only API: `GET /api/trending`, `GET /api/source/{name}`
+- Secret-gated ingest trigger: `POST /api/ingest/reddit`
+- Blazor WASM frontend — row-based layout per content type
+- Rate limiting (60 req/min per IP, 429 on breach)
+- Security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
+- CORS locked to known frontend origins
+- Full TDD test suite for all domain logic, fetchers, and API endpoints
 - Architecture boundary tests (NetArchTest)
+- Deploy pipeline: GitHub Actions → Oracle Cloud VM (API) + Cloudflare Pages (frontend)
+- Cloudflare Tunnel exposing API at `api.marlenhalvorsen.dev` (no open inbound ports)
+- Daily GitHub Actions scheduled trigger for data refresh
 
 ### 🔵 Should Have
 
+- RedditFetcher reliable in production (currently present but bypassed due to datacenter IP blocking)
 - Keyword search across trending item titles
 - Filter by time window: Last 24h / Last 7 days
-- Source badge on each card (Reddit / HackerNews)
-- Click-through count tracked server-side (no JS analytics, no fingerprinting)
-- Rate limiting on API endpoints
-- Structured logging with Serilog (file sink only)
 - Health check endpoint: `GET /health`
-- OpenAPI / Swagger docs auto-generated
-- Additional content sources: Dev.to, Lobste.rs, GitHub Trending, Product Hunt, Arxiv (essential for comprehensive AI aggregation)
+- Structured logging
 
 ### 🟡 Could Have
 
 - RSS feed output of current trending items
-- Dark / light mode toggle (CSS custom properties, localStorage only)
-- Share button generating a direct link to a specific item
+- Dark / light mode toggle
 - Trending sparkline chart (score over 7 days)
-- Admin flag to hide inappropriate items (env-var protected, no login)
+- OpenAPI / Swagger docs
 
 ### 🔴 Won't Have
 
@@ -145,21 +178,28 @@ AiPulse/
 - Personalisation or recommendation algorithms
 - Paid tiers or paywalled features
 - Scraping third-party sites (public APIs only)
-- Embedding podcast audio or YouTube video players (links out only)
-- Push notifications or email digests (no PII = impossible by design)
 - Native mobile apps
-- Social login (Google, GitHub)
+- Push notifications or email digests
 
 ---
 
 ## 5. Data Sources & Trending Signal
 
-### Sources (free, public APIs only)
+### Active Sources
 
-| Source | API | Endpoints |
+| Source | Fetcher | Notes |
 |---|---|---|
-| Reddit | Free JSON API (no key needed) | r/MachineLearning, r/artificial, r/ChatGPT, r/LocalLLaMA, r/singularity |
-| HackerNews | Open Firebase API | /topstories, /beststories — filtered by AI keywords |
+| HackerNews | `HackerNewsFetcher` | topstories + beststories, AI keyword filter |
+| Dev.to | `DevToFetcher` | AI/ML tags |
+| GitHub Trending | `GitHubTrendingFetcher` | AI keyword filter on repo descriptions |
+| Product Hunt | `ProductHuntFetcher` | AI category |
+| Podcasts | `PodcastFetcher` | Curated RSS feeds (Latent Space, Hard Fork, etc.) |
+
+### Known Limitations
+
+| Source | Status | Reason |
+|---|---|---|
+| Reddit | Present, not reliable in production | Reddit blocks requests from datacenter IPs; Cloudflare Worker proxy in place but not fully validated |
 
 ### TrendScore Formula
 
@@ -169,6 +209,7 @@ TrendScore = (upvotes × 0.6) + (comments × 0.3) + (recency_boost × 0.1)
 
 - Items older than 7 days decay to zero
 - Refreshed every 30 minutes via Hangfire
+- Triggered on startup (all environments) and via `POST /api/ingest/reddit`
 - All scoring logic lives exclusively in `TrendScoreCalculator`
 
 ---
@@ -185,21 +226,21 @@ Query parameters:
 Response shape:
 ```json
 {
-  "generatedAt": "2026-03-17T10:00:00Z",
+  "generatedAt": "2026-04-18T10:00:00Z",
   "rows": [
     {
-      "contentType": "Video",
+      "contentType": "Podcast",
       "items": [
         {
-          "id": "abc123",
-          "title": "Why GPT-5 changes everything",
-          "url": "https://youtube.com/watch?v=...",
-          "sourceName": "Reddit · r/MachineLearning",
-          "trendScore": 847.3,
-          "upvotes": 1243,
-          "commentCount": 89,
-          "postedAt": "2026-03-16T14:22:00Z",
-          "contentType": "Video"
+          "id": "podcast_latent_space_ep42",
+          "title": "The GPT-5 episode",
+          "url": "https://www.latent.space/p/gpt5",
+          "sourceName": "Latent Space",
+          "trendScore": 312.4,
+          "upvotes": 0,
+          "commentCount": 0,
+          "postedAt": "2026-04-17T09:00:00Z",
+          "contentType": "Podcast"
         }
       ]
     }
@@ -207,21 +248,69 @@ Response shape:
 }
 ```
 
+### `GET /api/source/{sourceName}`
+
+Returns trending items filtered to a single source.
+
+- `sourceName`: `HackerNews`, `DevTo`, `GitHub`, `ProductHunt`, `Podcast`, `Reddit`
+- Query parameters: `limit` (default 20, max 50), `window` (`day` or `week`)
+
+### `POST /api/ingest/reddit`
+
+Triggers `TrendRefreshJob` as a background task. Called by the daily GitHub Actions workflow.
+
+- Auth: `X-Ingest-Secret` request header, value must match `RedditIngest__Secret` env var on server
+- Returns `202 Accepted` immediately; job runs in background
+- Returns `401 Unauthorized` if header is missing or wrong
+
 ---
 
-## 7. Privacy & Security
+## 7. Hosting & Deployment
+
+### Production Architecture
+
+```
+Browser → Cloudflare Pages (marlenhalvorsen.dev)
+               ↓ HTTPS API calls to api.marlenhalvorsen.dev
+         Cloudflare Tunnel → Oracle Cloud VM → AiPulse.Api (systemd, port 5000)
+                                                     ↓
+                                               SQLite + Hangfire (SQLite-backed)
+```
+
+### GitHub Actions Workflows
+
+| Workflow | Trigger | Action |
+|---|---|---|
+| `ci.yml` | Push / PR to `main` | `dotnet build` + `dotnet test` |
+| `tests.yml` | Push / PR to `main` | Full test suite |
+| `deploy-api.yml` | Push to `main` | `dotnet publish` → SCP to VM → systemd restart |
+| `deploy.yml` | Push to `main` | `dotnet publish AiPulse.Client` → Cloudflare Pages |
+| `ingest-reddit.yml` | Daily 06:00 UTC + manual | `POST /api/ingest/reddit` |
+
+### Environment Variables (VM)
+
+| Variable | Purpose |
+|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `ASPNETCORE_URLS` | `http://localhost:5000` |
+| `RedditIngest__Secret` | Shared secret for `/api/ingest/reddit` |
+| `ConnectionStrings__DefaultConnection` | Path to SQLite app DB |
+| `ConnectionStrings__HangfireConnection` | Path to SQLite Hangfire DB |
+
+---
+
+## 8. Privacy & Security
 
 ### What the application NEVER does
 
 - Never sets any identifying cookie
 - Never loads third-party analytics scripts
 - Never logs IP addresses
-- Never stores information about who clicked what
-- Never makes client-side calls to external APIs
+- Never stores information about who visited or clicked
 
 ### Security Headers
 
-Implemented in `SecurityHeadersMiddleware` from day one:
+Implemented in `SecurityHeadersMiddleware`, applied to every response:
 
 ```
 Content-Security-Policy:   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: i.ytimg.com; frame-ancestors 'none'
@@ -230,21 +319,15 @@ X-Content-Type-Options:    nosniff
 Referrer-Policy:           no-referrer
 Permissions-Policy:        camera=(), microphone=(), geolocation=()
 Strict-Transport-Security: max-age=63072000; includeSubDomains
-Server header:             Remove entirely
+Server header:             Removed entirely
 ```
 
-### Input Validation
+### Other Security Controls
 
-- All query parameters validated and sanitised
-- EF Core parameterised queries only — no raw SQL
-- URLs from Reddit/HN validated against allowlist before storing
-- All output HTML-encoded by Blazor by default
-- Outbound HTTP: strict 5s timeout + Polly circuit breaker
-
-### Dependency Security
-
-- NuGet packages locked via `packages.lock.json`
-- No npm / JavaScript build pipeline
+- **CORS**: `AllowedOrigins` in config — locked to `localhost:5243`, `ai-pulse-70n.pages.dev`, `marlenhalvorsen.dev`, `www.marlenhalvorsen.dev`
+- **Rate limiting**: Fixed window, 60 req/min per IP on all API endpoints; `429 Too Many Requests` on breach
+- **Ingest endpoint**: Shared-secret authentication (`X-Ingest-Secret` header)
+- **EF Core parameterised queries**: No raw SQL
 
 ---
 
