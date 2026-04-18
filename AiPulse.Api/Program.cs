@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.RateLimiting;
 using AiPulse.Api.Api;
 using AiPulse.Api.Middleware;
@@ -17,7 +18,8 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<GetTrendingItemsQuery>();
 builder.Services.AddScoped<GetSourceItemsQuery>();
 
-builder.Services.AddHangfire(config => config.UseInMemoryStorage());
+var hangfireConnection = builder.Configuration.GetConnectionString("HangfireConnection")!;
+builder.Services.AddHangfire(config => config.UseSQLiteStorage(hangfireConnection));
 builder.Services.AddHangfireServer();
 
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
@@ -72,15 +74,11 @@ app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrendRefresh
     job => job.ExecuteAsync(CancellationToken.None),
     "*/30 * * * *");
 
-// TODO: remove before production — triggers an immediate fetch on startup for dev/testing
-if (app.Environment.IsDevelopment())
+_ = Task.Run(async () =>
 {
-    _ = Task.Run(async () =>
-    {
-        using var scope = app.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<TrendRefreshJob>().ExecuteAsync();
-    });
-}
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<TrendRefreshJob>().ExecuteAsync();
+});
 
 app.Run();
 
