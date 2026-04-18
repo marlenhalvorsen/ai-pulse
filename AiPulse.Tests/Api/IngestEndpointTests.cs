@@ -19,7 +19,7 @@ public class IngestEndpointTests : IClassFixture<IngestEndpointTests.ApiFactory>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ProductHunt:DeveloperToken"] = "test-token",
-                    ["Ingest:Secret"] = "test-secret-abc123",
+                    ["RedditIngest:Secret"] = "test-secret-abc123",
                     ["ConnectionStrings:DefaultConnection"] = $"DataSource={_dbName};Mode=Memory;Cache=Shared"
                 }));
         }
