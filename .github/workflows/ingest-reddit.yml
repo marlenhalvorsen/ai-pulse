@@ -1,0 +1,19 @@
+name: Daily Reddit Ingest
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily
+  workflow_dispatch:      # allow manual trigger
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Trigger Reddit ingest
+        run: |
+          curl --fail --silent --show-error \
+            -X POST https://api.marlenhalvorsen.dev/api/ingest/reddit \
+            -H "X-Ingest-Secret: ${{ secrets.REDDIT_INGEST_SECRET }}"

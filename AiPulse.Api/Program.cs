@@ -68,6 +68,7 @@ app.UseRouting();
 app.UseRateLimiter();
 
 app.MapTrendingEndpoints();
+app.MapIngestEndpoints();
 
 app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrendRefreshJob>(
     "trend-refresh",
