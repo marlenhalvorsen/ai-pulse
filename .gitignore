@@ -16,5 +16,7 @@ appsettings.Local.json
 *.db-shm
 *.db-wal
 
-# Claude
+# Claude — local config, secrets, cache
 .claude/
+# skills/ at repo root is git-tracked; .claude/skills is a junction pointing here
+# so Claude Code discovers skills at its expected path without duplicating files.

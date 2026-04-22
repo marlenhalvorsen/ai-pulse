@@ -10,6 +10,8 @@ Use the skills pipeline for all new features:
 - Individual skills: `/write-tests`, `/implement`, `/review`, `/open-pr`
 - Always wait for human "continue" before starting next feature
 
+Skill definitions live in `skills/` at the repo root (git-tracked). `.claude/skills` is a Windows directory junction pointing there so Claude Code discovers them at its expected path.
+
 ---
 
 ## What this project is

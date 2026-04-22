@@ -3,9 +3,9 @@
 [![CI](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml)
 [![Tests](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml)
 
+> **Live at [marlenhalvorsen.dev](https://marlenhalvorsen.dev)**
+
 > ⚠️ **Under active development.** This project is being built in public using Claude Code. Expect breaking changes.
->
-> **Current status:** The frontend (`AiPulse.Client`) is deployed to Cloudflare Pages. The API (`AiPulse.Api`) currently runs locally — production API hosting is designed and documented but not yet live.
 
 > **What the AI world is talking about right now.**
 
@@ -15,17 +15,11 @@
 
 AI Pulse is two things at once.
 
-The first is a product — a free platform that surfaces what the AI community is actually talking about right now, across podcasts, videos, articles, newsletters and discussions, ranked by real social momentum from Reddit and HackerNews.
+The first is a product — a free platform that surfaces what the AI community is actually talking about right now, across podcasts, videos, articles, newsletters and discussions, ranked by real social momentum.
 
 The second is an experiment. My other projects are built by me. This one is an exploration of agentic coding — where Claude Code writes the code, and I stay at the wheel. I define the architecture, review every pull request, and decide what gets merged. Claude Code implements. The goal is to find out what that collaboration actually feels like in practice, and whether the result holds up.
 
 Built in public. Human in the loop.
-
-> **What the AI world is talking about right now.**
-
-AI Pulse is a free, open, read-only web platform that surfaces trending AI content across every major format — podcasts, videos, articles, newsletters, and research papers — driven by real social signals from Reddit and HackerNews.
-
-No login. No tracking. No algorithms deciding what you should think. Just the conversation, as it is happening.
 
 ---
 
@@ -35,9 +29,50 @@ This project is built with [Claude Code](https://claude.ai/code) following a hum
 
 ---
 
+## Engineering Methodology
+
+Every feature follows the same disciplined pipeline — no exceptions.
+
+### Source-of-truth documents
+
+| Document | Purpose |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Architecture decisions, engineering rules, and non-negotiable constraints — the contract between human architect and AI engineer |
+| [`SPEC.md`](SPEC.md) | Full technical specification: stack, layer map, API contract, MoSCoW priorities, hosting architecture |
+
+`CLAUDE.md` is not a style guide. It is an architectural contract: strict TDD rules, SOLID/DRY enforcement, layer boundaries, git workflow, and security constraints. Claude Code reads it at the start of every session and cannot deviate from it.
+
+### TDD pipeline via specialized Claude skills
+
+Each feature moves through a fixed sequence of focused, single-purpose skills:
+
+```
+/pipeline feature: {description}
+    └── /write-tests    → writes failing xUnit tests — no production code yet
+    └── /implement      → implements only enough to make the tests pass
+    └── /review         → self-reviews the diff for quality, coverage, and regressions
+    └── /open-pr        → pushes the branch, opens the PR, and stops
+    └── /docs           → updates README.md and SPEC.md to reflect the merged feature
+```
+
+No production code is written before a failing test exists. The pipeline enforces this — Claude Code cannot skip steps. A human reviews and approves every PR before it merges to `main`.
+
+### How this prevents breaking changes
+
+| Safeguard | What it catches |
+|---|---|
+| TDD — red before green | Regressions and incorrect implementations before they ship |
+| Focused single-purpose skills | Scope creep and accidental bundling of unrelated changes |
+| One feature = one branch = one PR | Unreviewed changes reaching `main` |
+| Human PR review | Anything the automated checks miss |
+
+Every merged PR has passing tests, passes CI, respects the architecture, and was reviewed by a human.
+
+---
+
 ## Why AI Pulse?
 
-The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across Reddit, HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity.
+The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity.
 
 **Trending means trending this week** — not what has the most lifetime views.
 
@@ -45,7 +80,7 @@ The AI world moves fast. New papers, tools, videos, and debates emerge daily —
 
 ## How It Works
 
-1. Every 30 minutes, AI Pulse fetches posts from Reddit (`r/MachineLearning`, `r/artificial`, `r/ChatGPT`, `r/LocalLLaMA`, `r/singularity`) and HackerNews
+1. AI Pulse fetches posts from HackerNews and other sources on a regular schedule
 2. Each post that links to external content is classified by type — video, podcast, article, newsletter, research paper, or discussion
 3. A trend score is calculated based on upvotes, comments, and recency — items older than 7 days decay to zero
 4. The frontend displays results in rows by content type, highest trending first
@@ -57,10 +92,12 @@ The AI world moves fast. New papers, tools, videos, and debates emerge daily —
 | Concern | Choice |
 |---|---|
 | API | C# .NET 8 — ASP.NET Core Web API (`AiPulse.Api`) |
-| Frontend | Blazor WASM hosted (`AiPulse.Client`) |
+| Frontend | Blazor WASM (`AiPulse.Client`) |
 | Database | SQLite via Entity Framework Core |
-| Background Jobs | Hangfire |
+| Background Jobs | Hangfire (SQLite storage) |
 | Testing | xUnit + Moq + FluentAssertions |
+| API hosting | Oracle Cloud free-tier VM + Cloudflare Tunnel |
+| Frontend hosting | Cloudflare Pages |
 
 ---
 
@@ -71,7 +108,7 @@ The AI world moves fast. New papers, tools, videos, and debates emerge daily —
 git clone git@github.com:marlenhalvorsen/ai-pulse.git
 cd ai-pulse
 
-# Run the API (serves the Blazor WASM client at http://localhost:5293)
+# Run the API (http://localhost:5293)
 dotnet run --project AiPulse.Api
 
 # Run tests
@@ -84,26 +121,24 @@ Requirements: [.NET 8 SDK](https://dotnet.microsoft.com/download)
 
 ## Production Deployment
 
-> **Status:** `AiPulse.Client` is live on Cloudflare Pages. `AiPulse.Api` production hosting is documented below and ready to deploy — the VM setup and secrets configuration are the remaining steps before it goes live.
+Both components are live:
 
-The intended production setup:
-
-| Component | Platform | Status | How |
+| Component | Platform | URL | How |
 |---|---|---|---|
-| `AiPulse.Api` | Oracle Cloud VM (free tier) | Not yet live | GitHub Actions → SSH → systemd |
-| `AiPulse.Client` | Cloudflare Pages | Live | GitHub Actions → `cloudflare/pages-action` |
+| `AiPulse.Api` | Oracle Cloud VM (free tier) | `https://api.marlenhalvorsen.dev` | GitHub Actions → SSH → systemd |
+| `AiPulse.Client` | Cloudflare Pages | `https://marlenhalvorsen.dev` | GitHub Actions → `cloudflare/pages-action` |
 
 ### Architecture
 
 ```
-Browser → Cloudflare Pages (static WASM)
-               ↓ API calls
-         Cloudflare Tunnel → Oracle Cloud VM → AiPulse.Api (systemd)
+Browser → Cloudflare Pages (static WASM files)
+               ↓ API calls to api.marlenhalvorsen.dev
+         Cloudflare Tunnel → Oracle Cloud VM → AiPulse.Api (systemd, port 5000)
                                                      ↓
                                                SQLite + Hangfire
 ```
 
-The Blazor WASM client is served as static files from Cloudflare Pages. API calls go to `AiPulse.Api` running on an Oracle Cloud free-tier VM, exposed via a Cloudflare Tunnel (no open inbound ports on the VM).
+The Blazor WASM client is served as static files from Cloudflare Pages. All API calls are routed through a Cloudflare Tunnel to `AiPulse.Api` on an Oracle Cloud free-tier VM — no inbound ports are open on the VM.
 
 ### GitHub Actions workflows
 
@@ -113,18 +148,18 @@ The Blazor WASM client is served as static files from Cloudflare Pages. API call
 | `tests.yml` | Push / PR to `main` | Full test suite |
 | `deploy-api.yml` | Push to `main` | Publishes `AiPulse.Api`, copies to VM via SCP, restarts systemd service |
 | `deploy.yml` | Push to `main` | Publishes `AiPulse.Client`, deploys static files to Cloudflare Pages |
+| `ingest-reddit.yml` | Daily 06:00 UTC + manual | Calls `POST /api/ingest/reddit` to trigger a data refresh |
 
-### Secrets required
+### Repository secrets
 
-**API deploy** (`ORACLE_*` + `CLOUDFLARE_*`):
-
-| Secret | Description |
-|---|---|
-| `ORACLE_HOST` | VM public IP |
-| `ORACLE_USER` | SSH user (`ubuntu` or `opc`) |
-| `ORACLE_SSH_KEY` | Private key (PEM, full contents) |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Pages edit permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| Secret | Used by | Description |
+|---|---|---|
+| `ORACLE_HOST` | `deploy-api.yml` | VM public IP |
+| `ORACLE_USER` | `deploy-api.yml` | SSH user |
+| `ORACLE_SSH_KEY` | `deploy-api.yml` | Private key (PEM) |
+| `CLOUDFLARE_API_TOKEN` | `deploy.yml` | Pages edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare account ID |
+| `REDDIT_INGEST_SECRET` | `ingest-reddit.yml` | Shared secret for `/api/ingest/reddit` |
 
 ### VM setup (one-time)
 
@@ -148,6 +183,7 @@ Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
+Environment=RedditIngest__Secret=<your-secret>
 
 [Install]
 WantedBy=multi-user.target
@@ -155,9 +191,11 @@ EOF
 
 sudo systemctl enable --now ai-pulse-api
 
-# Install and configure Cloudflare Tunnel
-curl -L https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-archive-keyring.gpg
-# Then: cloudflared tunnel login && cloudflared tunnel create ai-pulse && cloudflared tunnel route dns ai-pulse <your-domain>
+# Cloudflare Tunnel (exposes the API at api.marlenhalvorsen.dev)
+# cloudflared tunnel login
+# cloudflared tunnel create ai-pulse
+# cloudflared tunnel route dns ai-pulse api.marlenhalvorsen.dev
+# cloudflared tunnel run ai-pulse
 ```
 
 ---
