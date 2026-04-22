@@ -52,6 +52,7 @@ Each feature moves through a fixed sequence of focused, single-purpose skills:
     └── /implement      → implements only enough to make the tests pass
     └── /review         → self-reviews the diff for quality, coverage, and regressions
     └── /open-pr        → pushes the branch, opens the PR, and stops
+    └── /docs           → updates README.md and SPEC.md to reflect the merged feature
 ```
 
 No production code is written before a failing test exists. The pipeline enforces this — Claude Code cannot skip steps. A human reviews and approves every PR before it merges to `main`.
