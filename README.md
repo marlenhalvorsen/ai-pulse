@@ -3,6 +3,8 @@
 [![CI](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/ci.yml)
 [![Tests](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marlenhalvorsen/ai-pulse/actions/workflows/tests.yml)
 
+> **Live at [marlenhalvorsen.dev](https://marlenhalvorsen.dev)**
+
 > ⚠️ **Under active development.** This project is being built in public using Claude Code. Expect breaking changes.
 
 > **What the AI world is talking about right now.**
@@ -24,6 +26,60 @@ Built in public. Human in the loop.
 ## ⚠️ AI-Generated Codebase
 
 This project is built with [Claude Code](https://claude.ai/code) following a human-defined specification. All code is AI-generated under human review — every Pull Request is reviewed and approved by a human before merging. The architecture, principles, and priorities are defined by the project owner; Claude Code implements them.
+
+---
+
+## Engineering Methodology
+
+Every feature follows the same disciplined pipeline — no exceptions.
+
+### Source-of-truth documents
+
+| Document | Purpose |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Architecture decisions, engineering rules, and non-negotiable constraints — the contract between human architect and AI engineer |
+| [`SPEC.md`](SPEC.md) | Full technical specification: stack, layer map, API contract, MoSCoW priorities, hosting architecture |
+
+`CLAUDE.md` is not a style guide. It is an architectural contract: strict TDD rules, SOLID/DRY enforcement, layer boundaries, git workflow, and security constraints. Claude Code reads it at the start of every session and cannot deviate from it.
+
+### TDD pipeline via specialized Claude skills
+
+Each feature moves through a fixed sequence of focused, single-purpose skills:
+
+```
+/pipeline feature: {description}
+    └── /write-tests    → writes failing xUnit tests — no production code yet
+    └── /implement      → implements only enough to make the tests pass
+    └── /review         → self-reviews the diff for quality, coverage, and regressions
+    └── /open-pr        → pushes the branch, opens the PR, and stops
+```
+
+No production code is written before a failing test exists. The pipeline enforces this — Claude Code cannot skip steps. A human reviews and approves every PR before it merges to `main`.
+
+### Architecture boundary enforcement
+
+Layer dependencies are enforced at test time using [NetArchTest](https://github.com/BenMorris/NetArchTest), defined in `AiPulse.Tests/Architecture/LayerBoundaryTests.cs`:
+
+```
+AiPulse.Domain          ← no external dependencies
+AiPulse.Application     ← references Domain only
+AiPulse.Infrastructure  ← references Application only
+AiPulse.Api             ← never references Infrastructure by type
+```
+
+These boundary tests run on every PR via GitHub Actions. A layer violation fails CI and blocks merge — no exceptions.
+
+### How this prevents breaking changes
+
+| Safeguard | What it catches |
+|---|---|
+| TDD — red before green | Regressions and incorrect implementations before they ship |
+| Architecture boundary tests (NetArchTest) | Layer violations and coupling creep |
+| Focused single-purpose skills | Scope creep and accidental bundling of unrelated changes |
+| One feature = one branch = one PR | Unreviewed changes reaching `main` |
+| Human PR review | Anything the automated checks miss |
+
+Every merged PR has passing tests, passes CI, respects the architecture, and was reviewed by a human.
 
 ---
 
