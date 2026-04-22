@@ -57,25 +57,11 @@ Each feature moves through a fixed sequence of focused, single-purpose skills:
 
 No production code is written before a failing test exists. The pipeline enforces this — Claude Code cannot skip steps. A human reviews and approves every PR before it merges to `main`.
 
-### Architecture boundary enforcement
-
-Layer dependencies are enforced at test time using [NetArchTest](https://github.com/BenMorris/NetArchTest), defined in `AiPulse.Tests/Architecture/LayerBoundaryTests.cs`:
-
-```
-AiPulse.Domain          ← no external dependencies
-AiPulse.Application     ← references Domain only
-AiPulse.Infrastructure  ← references Application only
-AiPulse.Api             ← never references Infrastructure by type
-```
-
-These boundary tests run on every PR via GitHub Actions. A layer violation fails CI and blocks merge — no exceptions.
-
 ### How this prevents breaking changes
 
 | Safeguard | What it catches |
 |---|---|
 | TDD — red before green | Regressions and incorrect implementations before they ship |
-| Architecture boundary tests (NetArchTest) | Layer violations and coupling creep |
 | Focused single-purpose skills | Scope creep and accidental bundling of unrelated changes |
 | One feature = one branch = one PR | Unreviewed changes reaching `main` |
 | Human PR review | Anything the automated checks miss |
