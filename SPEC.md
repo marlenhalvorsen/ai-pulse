@@ -21,7 +21,7 @@ The AI world moves fast. New papers, tools, videos, podcasts, and debates emerge
 | Database | SQLite via Entity Framework Core |
 | Background Jobs | Hangfire with SQLite storage (persists across restarts) |
 | HTTP Client | `IHttpClientFactory` per named client |
-| Testing | xUnit + Moq + FluentAssertions + NetArchTest |
+| Testing | xUnit + Moq + FluentAssertions |
 | API hosting | Oracle Cloud free-tier VM · Cloudflare Tunnel · systemd |
 | Frontend hosting | Cloudflare Pages |
 | CI/CD | GitHub Actions |
@@ -40,7 +40,7 @@ AiPulse.Application     # Use cases, interfaces, DTOs — references Domain only
 AiPulse.Infrastructure  # Fetchers, EF Core, Hangfire — references Application
 AiPulse.Api             # ASP.NET host, DI wiring, endpoints — references Application
 AiPulse.Client          # Blazor WASM frontend — references Application + Domain
-AiPulse.Tests           # All tests — xUnit + Moq + NetArchTest
+AiPulse.Tests           # All tests — xUnit + Moq + FluentAssertions
 ```
 
 Dependency rule enforced by .csproj project references. `AiPulse.Api` never references Infrastructure by type.
@@ -152,7 +152,6 @@ AiPulse/
 - Security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
 - CORS locked to known frontend origins
 - Full TDD test suite for all domain logic, fetchers, and API endpoints
-- Architecture boundary tests (NetArchTest)
 - Deploy pipeline: GitHub Actions → Oracle Cloud VM (API) + Cloudflare Pages (frontend)
 - Cloudflare Tunnel exposing API at `api.marlenhalvorsen.dev` (no open inbound ports)
 - Daily GitHub Actions scheduled trigger for data refresh

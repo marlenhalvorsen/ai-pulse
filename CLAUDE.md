@@ -18,7 +18,7 @@ Skill definitions live in `skills/` at the repo root (git-tracked). `.claude/ski
 
 A free, read-only web platform showing what the AI world is talking about right now. Trending content from Reddit and HackerNews, displayed in rows by content type. No login. No tracking. No algorithms.
 
-Tech stack: C# .NET 8 · Blazor Server · SQLite · Hangfire · xUnit. See SPEC.md for full details.
+Tech stack: C# .NET 8 · Blazor WebAssembly (WASM) · SQLite · Hangfire · xUnit. See SPEC.md for full details.
 
 ---
 
@@ -66,16 +66,15 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ## MoSCoW — implement in this order
 
 **Must Have (implement one at a time, stop after each PR):**
-1. GitHub Actions CI/CD — `dotnet build` + `dotnet test` on every PR ✅ in progress
-2. TrendScoreCalculator with 7-day decay
-3. ITrendFetcher contract + MockTrendFetcher
-4. RedditFetcher (r/MachineLearning, r/artificial, r/ChatGPT, r/LocalLLaMA, r/singularity)
-5. HackerNewsFetcher (topstories + beststories, AI keyword filter)
-6. ContentRepository (EF Core + SQLite)
-7. TrendRefreshJob via Hangfire (every 30 min)
-8. GET /api/trending endpoint + SecurityHeadersMiddleware
-9. Architecture boundary tests (NetArchTest)
-10. Blazor frontend — row-based layout per ContentType
+1. GitHub Actions CI/CD — `dotnet build` + `dotnet test` on every PR ✅
+2. TrendScoreCalculator with 7-day decay ✅
+3. ITrendFetcher contract + MockTrendFetcher ✅
+4. RedditFetcher (r/MachineLearning, r/artificial, r/ChatGPT, r/LocalLLaMA, r/singularity) ✅ (present; not reliable in production — Reddit blocks datacenter IPs)
+5. HackerNewsFetcher (topstories + beststories, AI keyword filter) ✅
+6. ContentRepository (EF Core + SQLite) ✅
+7. TrendRefreshJob via Hangfire (every 30 min) ✅
+8. GET /api/trending endpoint + SecurityHeadersMiddleware ✅
+9. Blazor frontend — row-based layout per ContentType ✅
 
 **Should Have / Could Have / Won't Have:** see SPEC.md section 4.
 

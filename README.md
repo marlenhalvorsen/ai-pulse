@@ -13,19 +13,11 @@
 
 ## About this project
 
-AI Pulse is two things at once.
+The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity. **Trending means trending this week** — not what has the most lifetime views.
 
-The first is a product — a free platform that surfaces what the AI community is actually talking about right now, across podcasts, videos, articles, newsletters and discussions, ranked by real social momentum.
+AI Pulse is that place. A free, read-only platform that surfaces what the AI community is discussing across podcasts, videos, articles, newsletters, and discussions — ranked by real social momentum. No login. No tracking. No algorithms.
 
-The second is an experiment. My other projects are built by me. This one is an exploration of agentic coding — where Claude Code writes the code, and I stay at the wheel. I define the architecture, review every pull request, and decide what gets merged. Claude Code implements. The goal is to find out what that collaboration actually feels like in practice, and whether the result holds up.
-
-Built in public. Human in the loop.
-
----
-
-## ⚠️ AI-Generated Codebase
-
-This project is built with [Claude Code](https://claude.ai/code) following a human-defined specification. All code is AI-generated under human review — every Pull Request is reviewed and approved by a human before merging. The architecture, principles, and priorities are defined by the project owner; Claude Code implements them.
+It is also an experiment in agentic coding — where Claude Code writes the code, and I stay at the wheel. I define the architecture, review every pull request, and decide what gets merged. Claude Code implements. Built in public. Human in the loop.
 
 ---
 
@@ -67,14 +59,6 @@ No production code is written before a failing test exists. The pipeline enforce
 | Human PR review | Anything the automated checks miss |
 
 Every merged PR has passing tests, passes CI, respects the architecture, and was reviewed by a human.
-
----
-
-## Why AI Pulse?
-
-The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity.
-
-**Trending means trending this week** — not what has the most lifetime views.
 
 ---
 
