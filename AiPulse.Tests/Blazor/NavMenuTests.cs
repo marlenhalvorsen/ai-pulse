@@ -83,4 +83,13 @@ public class NavMenuTests : TestContext
         githubLink.Should().NotBeNull();
         githubLink!.TextContent.Should().Contain("GitHub");
     }
+
+    [Fact]
+    public void NavMenu_DoesNotRenderRedditLink()
+    {
+        var cut = RenderComponent<NavMenu>();
+
+        cut.FindAll(".sidebar__link")
+            .Should().NotContain(el => el.GetAttribute("href") == "source/reddit");
+    }
 }

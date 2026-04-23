@@ -14,7 +14,7 @@
 
         <div class="sidebar__section-label">Sources</div>
 
-        @foreach (var source in Enum.GetValues<SourceType>())
+        @foreach (var source in Enum.GetValues<SourceType>().Where(s => s != SourceType.Reddit))
         {
             <NavLink class="sidebar__link" href="@($"source/{source.ToString().ToLower()}")">
                 <span class="sidebar__link-icon">@SourceIcon(source)</span>@SourceLabel(source)
