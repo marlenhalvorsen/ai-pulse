@@ -144,7 +144,7 @@ AiPulse/
 - PodcastFetcher (curated RSS feeds)
 - UrlClassifier mapping links to ContentType
 - ContentRepository (EF Core + SQLite)
-- TrendRefreshJob via Hangfire (every 30 minutes, SQLite-backed)
+- TrendRefreshJob via Hangfire (every 6 hours, SQLite-backed)
 - Public read-only API: `GET /api/trending`, `GET /api/source/{name}`
 - Secret-gated ingest trigger: `POST /api/ingest/reddit`
 - Blazor WASM frontend — row-based layout per content type
@@ -207,7 +207,7 @@ TrendScore = (upvotes × 0.6) + (comments × 0.3) + (recency_boost × 0.1)
 ```
 
 - Items older than 7 days decay to zero
-- Refreshed every 30 minutes via Hangfire
+- Refreshed every 6 hours via Hangfire
 - Triggered on startup (all environments) and via `POST /api/ingest/reddit`
 - All scoring logic lives exclusively in `TrendScoreCalculator`
 

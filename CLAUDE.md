@@ -72,7 +72,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 4. RedditFetcher (r/MachineLearning, r/artificial, r/ChatGPT, r/LocalLLaMA, r/singularity) ✅ (present; not reliable in production — Reddit blocks datacenter IPs)
 5. HackerNewsFetcher (topstories + beststories, AI keyword filter) ✅
 6. ContentRepository (EF Core + SQLite) ✅
-7. TrendRefreshJob via Hangfire (every 30 min) ✅
+7. TrendRefreshJob via Hangfire (every 6 hours) ✅
 8. GET /api/trending endpoint + SecurityHeadersMiddleware ✅
 9. Blazor frontend — row-based layout per ContentType ✅
 
