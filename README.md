@@ -26,6 +26,23 @@ Claude Code's behaviour.
 
 ---
 
+## Reflections
+
+The hardest architectural decision was keeping Reddit as a fetcher despite
+datacenter IP blocking — I chose to keep it in the codebase as documented
+technical debt rather than delete it. It represents a real constraint worth
+preserving honestly.
+
+Looking back, the layered architecture is arguably over-engineered for a project of this size. For a solo hobby project with a handful of data sources, a simpler structure would have been sufficient. But the architecture was chosen deliberately — to practice designing a system that can grow, and to give the TDD pipeline a meaningful structure to enforce. The tradeoff was worth it for the learning, but I would reach for something leaner in a purely production-first context.
+
+Building with Claude Code clarified something quickly: the quality of the output
+is a direct function of the quality of the specification. Vague input produces
+vague code. Writing CLAUDE.md as a strict architectural contract — not just a
+prompt — was the most important thing I did.
+
+---
+
+
 ## About this project
 
 The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity. **Trending means trending this week** — not what has the most lifetime views.
@@ -223,22 +240,6 @@ Open a PR against `main` and describe what you built and what tests cover it.
 ## Privacy
 
 AI Pulse collects zero personal data. No cookies. No analytics scripts. No IP logging. No tracking of any kind. This is enforced by architecture — there is no login system, no session, nothing to collect.
-
----
-
-## Reflections
-
-The hardest architectural decision was keeping Reddit as a fetcher despite
-datacenter IP blocking — I chose to keep it in the codebase as documented
-technical debt rather than delete it. It represents a real constraint worth
-preserving honestly.
-
-Looking back, the layered architecture is arguably over-engineered for a project of this size. For a solo hobby project with a handful of data sources, a simpler structure would have been sufficient. But the architecture was chosen deliberately — to practice designing a system that can grow, and to give the TDD pipeline a meaningful structure to enforce. The tradeoff was worth it for the learning, but I would reach for something leaner in a purely production-first context.
-
-Building with Claude Code clarified something quickly: the quality of the output
-is a direct function of the quality of the specification. Vague input produces
-vague code. Writing CLAUDE.md as a strict architectural contract — not just a
-prompt — was the most important thing I did.
 
 ---
 
