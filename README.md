@@ -11,6 +11,20 @@
 
 ---
 
+![AI Pulse](docs/screenshot.png)
+
+## My Role
+
+I designed the layered architecture, wrote CLAUDE.md as an architectural contract
+governing Claude Code's behaviour, defined the MoSCoW priorities, built the skills
+pipeline (write-tests → implement → review → pr → docs), and reviewed every PR
+before merge.
+
+See [CLAUDE.md](CLAUDE.md) for the architectural contract I wrote governing
+Claude Code's behaviour.
+
+---
+
 ## About this project
 
 The AI world moves fast. New papers, tools, videos, and debates emerge daily — scattered across HackerNews, YouTube, Spotify, and dozens of newsletters. There is no single place that shows you what the AI community is *actually* talking about right now, ranked by real momentum rather than all-time popularity. **Trending means trending this week** — not what has the most lifetime views.
@@ -181,6 +195,20 @@ sudo systemctl enable --now ai-pulse-api
 # cloudflared tunnel route dns ai-pulse api.marlenhalvorsen.dev
 # cloudflared tunnel run ai-pulse
 ```
+
+---
+
+## Reflections
+
+The hardest architectural decision was keeping Reddit as a fetcher despite
+datacenter IP blocking — I chose to keep it in the codebase as documented
+technical debt rather than delete it. It represents a real constraint worth
+preserving honestly.
+
+Building with Claude Code clarified something quickly: the quality of the output
+is a direct function of the quality of the specification. Vague input produces
+vague code. Writing CLAUDE.md as a strict architectural contract — not just a
+prompt — was the most important thing I did.
 
 ---
 
