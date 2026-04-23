@@ -10,8 +10,8 @@
 > **What the AI world is talking about right now.**
 
 ---
-## Screenshot 
-<img width="1501" height="846" alt="image" src="https://github.com/user-attachments/assets/1108bca5-1729-4848-b1c4-67f56159116e" />
+## Product Preview
+<img width="1775" height="922" alt="image" src="https://github.com/user-attachments/assets/bab7451b-61d2-4302-b0c6-4ee45849722d" />
 
 
 ## My Role
