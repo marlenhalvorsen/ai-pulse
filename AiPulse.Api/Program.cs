@@ -73,7 +73,7 @@ app.MapIngestEndpoints();
 app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrendRefreshJob>(
     "trend-refresh",
     job => job.ExecuteAsync(CancellationToken.None),
-    "*/30 * * * *");
+    app.Configuration["Hangfire:TrendRefreshCron"]!);
 
 _ = Task.Run(async () =>
 {
