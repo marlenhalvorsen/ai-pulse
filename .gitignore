@@ -20,3 +20,7 @@ appsettings.Local.json
 .claude/
 # skills/ at repo root is git-tracked; .claude/skills is a junction pointing here
 # so Claude Code discovers skills at its expected path without duplicating files.
+
+#Local 
+.agents/
+TestResults/
