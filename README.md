@@ -176,6 +176,7 @@ The Blazor WASM client is served as static files from Cloudflare Pages. All API 
 | `CLOUDFLARE_API_TOKEN` | `deploy.yml` | Pages edit permissions |
 | `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare account ID |
 | `REDDIT_INGEST_SECRET` | `ingest-reddit.yml` | Shared secret for `/api/ingest/reddit` |
+| `ProductHunt__DeveloperToken` | `AiPulse.Api` | Product Hunt developer token required for Product Hunt ingestion. |
 
 ### VM setup (one-time)
 
@@ -200,6 +201,7 @@ RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
 Environment=RedditIngest__Secret=<your-secret>
+Environment=ProductHunt__DeveloperToken=<your-producthunt-token>
 
 [Install]
 WantedBy=multi-user.target
