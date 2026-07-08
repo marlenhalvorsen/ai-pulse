@@ -66,7 +66,7 @@ public class PodcastDescriptionCleanupTests : IDisposable
     // ── Deletion ──────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task RunAsync_DeletesAllExistingPodcastItems()
+    public async Task RunAsync_DoeNotDeleteExistingPodcasts_WhenFetcherReturnsNoItems()
     {
         _db.ContentItems.Add(PodcastItem("pod1"));
         _db.ContentItems.Add(PodcastItem("pod2"));
@@ -75,12 +75,42 @@ public class PodcastDescriptionCleanupTests : IDisposable
         await new PodcastDescriptionCleanup(_db, EmptyFetcher().Object, _repository).RunAsync();
 
         _db.ChangeTracker.Clear();
+
         var remaining = await _db.ContentItems
             .Where(i => i.ContentType == ContentType.Podcast)
             .ToListAsync();
-        remaining.Should().BeEmpty();
+        remaining.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task RunAsync_ReplacesExistingPodcasts_WhenFetcherReturnsNewItems()
+    {
+        // Arrange
+        _db.ContentItems.Add(PodcastItem("old1"));
+        _db.ContentItems.Add(PodcastItem("old2"));
+        await _db.SaveChangesAsync();
+
+        var newPodcast = PodcastItem("new1");
+
+        var fetcher = new Mock<ITrendFetcher>();
+        fetcher.Setup(f => f.FetchAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([newPodcast]);
+
+        // Act
+        await new PodcastDescriptionCleanup(_db, fetcher.Object, _repository)
+            .RunAsync();
+
+        // Assert
+        _db.ChangeTracker.Clear();
+
+        var podcasts = await _db.ContentItems
+            .Where(x => x.ContentType == ContentType.Podcast)
+            .ToListAsync();
+
+        podcasts.Should().ContainSingle();
+        podcasts.Single().Id.Should().Be("new1");
+    }
+    
     [Fact]
     public async Task RunAsync_LeavesNonPodcastItemsUntouched()
     {
