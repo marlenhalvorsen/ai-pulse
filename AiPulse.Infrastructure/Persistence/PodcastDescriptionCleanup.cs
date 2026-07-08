@@ -18,11 +18,19 @@ public class PodcastDescriptionCleanup
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        var items = await _podcastFetcher.FetchAsync(cancellationToken);
+
+        if(!items.Any())
+            return;
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+
         await _db.Database.ExecuteSqlRawAsync(
             "DELETE FROM ContentItems WHERE ContentType = 'Podcast'",
             cancellationToken);
 
-        var items = await _podcastFetcher.FetchAsync(cancellationToken);
         await _repository.UpsertAsync(items, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 }
