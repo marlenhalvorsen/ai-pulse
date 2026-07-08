@@ -293,8 +293,10 @@ Browser → Cloudflare Pages (marlenhalvorsen.dev)
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | `http://localhost:5000` |
 | `RedditIngest__Secret` | Shared secret for `/api/ingest/reddit` |
+| `ProductHunt__DeveloperToken` | Product Hunt Developer API token (required for startup) |
 | `ConnectionStrings__DefaultConnection` | Path to SQLite app DB |
 | `ConnectionStrings__HangfireConnection` | Path to SQLite Hangfire DB |
+
 
 ---
 
