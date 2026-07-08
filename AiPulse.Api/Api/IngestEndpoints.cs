@@ -25,7 +25,8 @@ public static class IngestEndpoints
             });
 
             return Results.Accepted();
-        });
+        })
+        .RequireRateLimiting("api");
 
         return app;
     }
