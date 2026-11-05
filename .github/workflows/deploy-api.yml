@@ -47,7 +47,7 @@ jobs:
             StateDirectoryMode=0750
             EOF
             sudo systemctl daemon-reload
-            sudo systemctl stop ai-pulse-api || true
+            sudo systemctl stop ai-pulse-api
             sudo rm -rf /opt/ai-pulse/app
             sudo mv /opt/ai-pulse/staging /opt/ai-pulse/app
             sudo systemctl start ai-pulse-api
