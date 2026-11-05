@@ -142,7 +142,7 @@ Both components are live:
 | Component | Platform | URL | How |
 |---|---|---|---|
 | `AiPulse.Api` | Oracle Cloud VM (free tier) | `https://api.marlenhalvorsen.dev` | GitHub Actions → SSH → systemd |
-| `AiPulse.Client` | Cloudflare Pages | `https://marlenhalvorsen.dev` | GitHub Actions → `cloudflare/pages-action` |
+| `AiPulse.Client` | Cloudflare Pages | `https://marlenhalvorsen.dev` | GitHub Actions → Wrangler CLI |
 
 ### Architecture
 
@@ -155,6 +155,10 @@ Browser → Cloudflare Pages (static WASM files)
 ```
 
 The Blazor WASM client is served as static files from Cloudflare Pages. All API calls are routed through a Cloudflare Tunnel to `AiPulse.Api` on an Oracle Cloud free-tier VM — no inbound ports are open on the VM.
+
+The frontend workflow publishes with `dotnet publish AiPulse.Client -c Release -o publish` and deploys `publish/wwwroot` to the existing `ai-pulse` Cloudflare Pages project using Wrangler.
+
+Production deployments are managed through GitHub Actions, with `main` as the production branch. Automatic deployments through Cloudflare's native Git integration are disabled.
 
 ### GitHub Actions workflows
 
