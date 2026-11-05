@@ -11,8 +11,9 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
-      - name: Read API diagnostics from Oracle VM
+      - name: Diagnose API on Oracle VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ORACLE_HOST }}
@@ -21,12 +22,6 @@ jobs:
           command_timeout: 2m
           script: |
             set -eu
-            printf '\nService active state\n'
-            systemctl is-active ai-pulse-api || true
-
-            printf '\nService identity and result\n'
-            systemctl show ai-pulse-api -p User -p Group -p MainPID -p Result
-            systemctl show ai-pulse-api -p User --value | xargs -r id -u
 
             sudo -n python3 - <<'PY'
             import os
@@ -34,49 +29,149 @@ jobs:
             import stat
             import subprocess
 
-            print('\nLast 40 journal lines (diagnostic text only)', flush=True)
-            journal = subprocess.run(
-                ['journalctl', '-u', 'ai-pulse-api', '-n', '40', '--no-pager', '-o', 'cat'],
-                capture_output=True, text=True, check=False,
-            )
-            if journal.returncode:
-                raise SystemExit('Unable to read service journal')
+            def run(*args):
+                return subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
 
-            safe = re.compile(
-                r'SQLite Error [0-9]+'
-                r'|unable to open database file|attempt to write a readonly database'
-                r'|database is locked|database disk image is malformed'
-                r'|disk I/O error|no such table|permission denied|access denied'
-                r'|readonly database|read-only file system|no space left on device'
-                r'|address already in use|failed to bind|failed to start'
-                r'|hosting failed to start|unhandled exception|core dumped'
-                r'|main process exited|failed with result|start request repeated too quickly'
-                r'|application started|application is shutting down'
-                r'|Microsoft\.Data\.Sqlite\.SqliteException'
-                r'|System\.(?:UnauthorizedAccessException|InvalidOperationException'
-                r'|ArgumentException|NullReferenceException|TypeInitializationException)'
-                r'|System\.IO\.(?:IOException|DirectoryNotFoundException|FileNotFoundException)'
-                r'|System\.Net\.Sockets\.SocketException',
+            print("=== API SERVICE ===", flush=True)
+
+            result = run(
+                "systemctl", "show", "ai-pulse-api",
+                "-p", "ActiveState",
+                "-p", "SubState",
+                "-p", "NRestarts",
+                "-p", "ExecMainStatus",
+                "-p", "Result",
+            )
+
+            allowed = {
+                "ActiveState",
+                "SubState",
+                "NRestarts",
+                "ExecMainStatus",
+                "Result",
+            }
+
+            for line in result.stdout.splitlines():
+                key, sep, value = line.partition("=")
+                if sep and key in allowed:
+                    if re.fullmatch(r"[A-Za-z0-9_-]+", value):
+                        print(line)
+
+            print("\n=== API USER AND DATABASE ACCESS ===")
+
+            user_result = run(
+                "systemctl", "show",
+                "ai-pulse-api", "-p", "User", "--value",
+            )
+            username = user_result.stdout.strip()
+
+            if username:
+                identity = run("id", "-u", username)
+                uid = identity.stdout.strip()
+                if uid.isdigit():
+                    print("API user UID:", uid)
+            else:
+                print("API runs as root (no User configured)")
+
+            directory = "/var/lib/ai-pulse"
+
+            try:
+                info = os.stat(directory)
+                print("Directory exists: yes")
+                print("Directory owner UID:", info.st_uid)
+                print(
+                    "Directory permissions:",
+                    f"{stat.S_IMODE(info.st_mode):04o}",
+                )
+            except FileNotFoundError:
+                print("Directory exists: no")
+
+            for filename in ("aipulse.db", "hangfire.db"):
+                path = os.path.join(directory, filename)
+                print(
+                    filename + ":",
+                    "exists" if os.path.exists(path) else "missing",
+                )
+
+            print("\n=== STARTUP ERRORS (SANITIZED) ===")
+
+            journal = run(
+                "journalctl",
+                "-u", "ai-pulse-api",
+                "-n", "300",
+                "--no-pager",
+                "-o", "cat",
+            )
+
+            if journal.returncode != 0:
+                print("Unable to read journal")
+                raise SystemExit(1)
+
+            exception_pattern = re.compile(
+                r"\b(?:[A-Za-z_][A-Za-z0-9_]*\.)*"
+                r"[A-Za-z_][A-Za-z0-9_]*Exception\b"
+            )
+
+            sqlite_pattern = re.compile(
+                r"SQLite Error \d+(?:\s*:\s*\d+)?",
                 re.IGNORECASE,
             )
 
-            for line in journal.stdout.splitlines()[-40:]:
-                matches = [match.group(0) for match in safe.finditer(line)]
-                print(' | '.join(matches) + ' [remaining text redacted]' if matches else '[redacted]')
+            known_errors = {
+                "unable to open database file":
+                    "SQLite cannot open database",
+                "attempt to write a readonly database":
+                    "SQLite database is read-only",
+                "permission denied":
+                    "Permission denied",
+                "access denied":
+                    "Access denied",
+                "database is locked":
+                    "SQLite database locked",
+                "no such table":
+                    "SQLite table missing",
+                "no such file or directory":
+                    "File or directory missing",
+                "address already in use":
+                    "Port already in use",
+                "no space left on device":
+                    "Disk full",
+                "failed to bind":
+                    "Server binding failed",
+            }
 
-            print('\nDirectory metadata: /var/lib/ai-pulse')
-            try:
-                info = os.stat('/var/lib/ai-pulse', follow_symlinks=False)
-            except FileNotFoundError:
-                print('exists: no')
-            else:
-                print('exists: yes')
-                print('is directory: ' + ('yes' if stat.S_ISDIR(info.st_mode) else 'no'))
-                print(f'owner UID: {info.st_uid}; group GID: {info.st_gid}')
-                print(f'permissions: {stat.filemode(info.st_mode)} ({stat.S_IMODE(info.st_mode):04o})')
+            found = 0
 
-            print('\nDatabase existence (no contents read)')
-            for name in ('aipulse.db', 'hangfire.db'):
-                path = '/var/lib/ai-pulse/' + name
-                print(name + ': ' + ('yes' if os.path.exists(path) else 'no'))
+            for line in journal.stdout.splitlines():
+                findings = []
+
+                for match in exception_pattern.finditer(line):
+                    findings.append(
+                        "Exception: " + match.group(0)
+                    )
+
+                for match in sqlite_pattern.finditer(line):
+                    findings.append(
+                        "SQLite: " + match.group(0)
+                    )
+
+                lower = line.lower()
+                for phrase, description in known_errors.items():
+                    if phrase in lower:
+                        findings.append(description)
+
+                if findings:
+                    print(" | ".join(dict.fromkeys(findings)))
+                    found += 1
+
+            if found == 0:
+                print("No recognized startup errors found")
+
+            print("\n=== DIAGNOSIS COMPLETE ===")
             PY
