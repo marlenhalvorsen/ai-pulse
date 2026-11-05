@@ -156,17 +156,9 @@ Browser → Cloudflare Pages (static WASM files)
 
 The Blazor WASM client is served as static files from Cloudflare Pages. All API calls are routed through a Cloudflare Tunnel to `AiPulse.Api` on an Oracle Cloud free-tier VM — no inbound ports are open on the VM.
 
-The frontend workflow publishes with `dotnet publish AiPulse.Client -c Release -o publish`
-and uploads only `publish/wwwroot` to the existing `ai-pulse` Pages project using
-Wrangler. The project production branch must remain `main`; the existing custom
-domain and `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets are unchanged.
+The frontend workflow publishes with `dotnet publish AiPulse.Client -c Release -o publish` and deploys `publish/wwwroot` to the existing `ai-pulse` Cloudflare Pages project using Wrangler.
 
-If the Pages GitHub integration is enabled, disable its automatic deployments to
-avoid duplicate builds competing with GitHub Actions. In Cloudflare, open
-**Workers & Pages → ai-pulse → Settings → Builds & deployments → Branch control**:
-disable automatic production branch deployments and set preview branch deployments
-to **None**. Keep the existing project and custom domain; Wrangler can deploy to a
-Git-integrated Pages project with automatic Git builds disabled.
+Production deployments are managed through GitHub Actions, with `main` as the production branch. Automatic deployments through Cloudflare's native Git integration are disabled.
 
 ### GitHub Actions workflows
 
