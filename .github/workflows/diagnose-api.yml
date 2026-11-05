@@ -1,0 +1,81 @@
+
+name: Diagnose Oracle API
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read API diagnostics from Oracle VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            set -eu
+            printf '\nService active state\n'
+            systemctl is-active ai-pulse-api || true
+
+            printf '\nService identity and result\n'
+            systemctl show ai-pulse-api -p User -p Group -p MainPID -p Result
+
+            sudo -n python3 - <<'PY'
+            import os
+            import re
+            import stat
+            import subprocess
+
+            print('\nLast 40 journal lines (diagnostic text only)', flush=True)
+            journal = subprocess.run(
+                ['journalctl', '-u', 'ai-pulse-api', '-n', '40', '--no-pager', '-o', 'cat'],
+                capture_output=True, text=True, check=False,
+            )
+            if journal.returncode:
+                raise SystemExit('Unable to read service journal')
+
+            safe = re.compile(
+                r'SQLite Error [0-9]+'
+                r'|unable to open database file|attempt to write a readonly database'
+                r'|database is locked|database disk image is malformed'
+                r'|disk I/O error|no such table|permission denied|access denied'
+                r'|readonly database|read-only file system|no space left on device'
+                r'|address already in use|failed to bind|failed to start'
+                r'|hosting failed to start|unhandled exception|core dumped'
+                r'|main process exited|failed with result|start request repeated too quickly'
+                r'|application started|application is shutting down'
+                r'|Microsoft\.Data\.Sqlite\.SqliteException'
+                r'|System\.(?:UnauthorizedAccessException|InvalidOperationException'
+                r'|ArgumentException|NullReferenceException|TypeInitializationException)'
+                r'|System\.IO\.(?:IOException|DirectoryNotFoundException|FileNotFoundException)'
+                r'|System\.Net\.Sockets\.SocketException',
+                re.IGNORECASE,
+            )
+
+            for line in journal.stdout.splitlines()[-40:]:
+                matches = [match.group(0) for match in safe.finditer(line)]
+                print(' | '.join(matches) + ' [remaining text redacted]' if matches else '[redacted]')
+
+            print('\nDirectory metadata: /var/lib/ai-pulse')
+            try:
+                info = os.stat('/var/lib/ai-pulse', follow_symlinks=False)
+            except FileNotFoundError:
+                print('exists: no')
+            else:
+                print('exists: yes')
+                print('is directory: ' + ('yes' if stat.S_ISDIR(info.st_mode) else 'no'))
+                print(f'owner UID: {info.st_uid}; group GID: {info.st_gid}')
+                print(f'permissions: {stat.filemode(info.st_mode)} ({stat.S_IMODE(info.st_mode):04o})')
+
+            print('\nDatabase existence (no contents read)')
+            for name in ('aipulse.db', 'hangfire.db'):
+                path = '/var/lib/ai-pulse/' + name
+                print(name + ': ' + ('yes' if os.path.exists(path) else 'no'))
+            PY
