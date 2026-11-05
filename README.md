@@ -202,6 +202,8 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
 Environment=RedditIngest__Secret=<your-secret>
 Environment=ProductHunt__DeveloperToken=<your-producthunt-token>
+StateDirectory=ai-pulse
+StateDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target
@@ -215,6 +217,25 @@ sudo systemctl enable --now ai-pulse-api
 # cloudflared tunnel route dns ai-pulse api.marlenhalvorsen.dev
 # cloudflared tunnel run ai-pulse
 ```
+
+### Persistent production databases
+
+`appsettings.Production.json` stores the application database at
+`/var/lib/ai-pulse/aipulse.db` and the Hangfire database at
+`/var/lib/ai-pulse/hangfire.db`. Local development keeps the existing relative paths.
+
+The API deployment workflow installs a systemd drop-in that selects the Production
+environment and sets `StateDirectory=ai-pulse` with mode `0750`. On service startup,
+systemd creates `/var/lib/ai-pulse/` and assigns ownership to the service's configured
+user and group (root for the unit above). The directory survives service restarts
+and replacement of `/opt/ai-pulse/app`.
+
+No one-time server setup or data migration is required for an existing deployment:
+the next deployment installs the drop-in and creates fresh databases automatically.
+The existing service and deployment user's sudo access are still required. Any
+explicit `ConnectionStrings__DefaultConnection` or
+`ConnectionStrings__HangfireConnection` service overrides take precedence over the
+JSON configuration and must use the new paths if present.
 
 ---
 
