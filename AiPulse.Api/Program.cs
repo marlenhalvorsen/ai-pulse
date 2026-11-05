@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Data.Sqlite;
 using AiPulse.Api.Api;
 using AiPulse.Api.Middleware;
 using AiPulse.Application.Interfaces;
@@ -18,8 +19,15 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<GetTrendingItemsQuery>();
 builder.Services.AddScoped<GetSourceItemsQuery>();
 
-var hangfireConnection = builder.Configuration.GetConnectionString("HangfireConnection")!;
-builder.Services.AddHangfire(config => config.UseSQLiteStorage(hangfireConnection));
+builder.Services.AddHangfire(config =>
+{
+    var hangfireConnection = builder.Configuration.GetConnectionString("HangfireConnection");
+    var databasePath = new SqliteConnectionStringBuilder(hangfireConnection).DataSource;
+    if (string.IsNullOrWhiteSpace(databasePath))
+        throw new InvalidOperationException("HangfireConnection must specify a non-empty SQLite DataSource filename.");
+
+    config.UseSQLiteStorage(databasePath);
+});
 builder.Services.AddHangfireServer();
 
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
