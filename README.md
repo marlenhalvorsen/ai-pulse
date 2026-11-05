@@ -142,7 +142,7 @@ Both components are live:
 | Component | Platform | URL | How |
 |---|---|---|---|
 | `AiPulse.Api` | Oracle Cloud VM (free tier) | `https://api.marlenhalvorsen.dev` | GitHub Actions → SSH → systemd |
-| `AiPulse.Client` | Cloudflare Pages | `https://marlenhalvorsen.dev` | GitHub Actions → `cloudflare/pages-action` |
+| `AiPulse.Client` | Cloudflare Pages | `https://marlenhalvorsen.dev` | GitHub Actions → Wrangler CLI |
 
 ### Architecture
 
@@ -155,6 +155,18 @@ Browser → Cloudflare Pages (static WASM files)
 ```
 
 The Blazor WASM client is served as static files from Cloudflare Pages. All API calls are routed through a Cloudflare Tunnel to `AiPulse.Api` on an Oracle Cloud free-tier VM — no inbound ports are open on the VM.
+
+The frontend workflow publishes with `dotnet publish AiPulse.Client -c Release -o publish`
+and uploads only `publish/wwwroot` to the existing `ai-pulse` Pages project using
+Wrangler. The project production branch must remain `main`; the existing custom
+domain and `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets are unchanged.
+
+If the Pages GitHub integration is enabled, disable its automatic deployments to
+avoid duplicate builds competing with GitHub Actions. In Cloudflare, open
+**Workers & Pages → ai-pulse → Settings → Builds & deployments → Branch control**:
+disable automatic production branch deployments and set preview branch deployments
+to **None**. Keep the existing project and custom domain; Wrangler can deploy to a
+Git-integrated Pages project with automatic Git builds disabled.
 
 ### GitHub Actions workflows
 
