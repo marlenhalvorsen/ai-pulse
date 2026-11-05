@@ -26,6 +26,7 @@ jobs:
 
             printf '\nService identity and result\n'
             systemctl show ai-pulse-api -p User -p Group -p MainPID -p Result
+            systemctl show ai-pulse-api -p User --value | xargs -r id -u
 
             sudo -n python3 - <<'PY'
             import os
