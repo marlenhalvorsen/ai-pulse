@@ -28,10 +28,10 @@ Claude Code's behaviour.
 
 ## Reflections
 
-The hardest architectural decision was keeping Reddit as a fetcher despite
-datacenter IP blocking — I chose to keep it in the codebase as documented
-technical debt rather than delete it. It represents a real constraint worth
-preserving honestly.
+Direct requests to Reddit from datacenter IPs have been unreliable. AI Pulse keeps
+`RedditFetcher` in the refresh job and sends its requests through a Cloudflare
+Worker proxy. Reddit is hidden from the sidebar, and production ingestion
+reliability remains unverified.
 
 Looking back, the layered architecture is arguably over-engineered for a project of this size. For a solo hobby project with a handful of data sources, a simpler structure would have been sufficient. But the architecture was chosen deliberately — to practice designing a system that can grow, and to give the TDD pipeline a meaningful structure to enforce. The tradeoff was worth it for the learning, but I would reach for something leaner in a purely production-first context.
 
@@ -137,7 +137,7 @@ Requirements: [.NET 8 SDK](https://dotnet.microsoft.com/download)
 
 ## Production Deployment
 
-Both components are live:
+The production endpoints are:
 
 | Component | Platform | URL | How |
 |---|---|---|---|
@@ -164,29 +164,35 @@ Production deployments are managed through GitHub Actions, with `main` as the pr
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | Push / PR to `main` | `dotnet build` + `dotnet test` |
-| `tests.yml` | Push / PR to `main` | Full test suite |
-| `deploy-api.yml` | Push to `main` | Publishes `AiPulse.Api`, copies to VM via SCP, restarts systemd service |
-| `deploy.yml` | Push to `main` | Publishes `AiPulse.Client`, deploys static files to Cloudflare Pages |
-| `ingest-reddit.yml` | Daily 06:00 UTC + manual | Calls `POST /api/ingest/reddit` to trigger a data refresh |
+| `ci.yml` | Push to `main` or `feature/**`, or PR targeting `main` | Restores, builds, and tests in Release |
+| `tests.yml` | Push to `main` or `feature/**`, or PR targeting `main` | Restores, builds, and runs the full test suite in Release |
+| `deploy-api.yml` | Push to `main` | Publishes and stages the API, installs the systemd storage drop-in, swaps the release, and checks service state |
+| `deploy.yml` | Push to `main` | Publishes the Blazor client, checks the static output, and deploys it to Cloudflare Pages with Wrangler |
+| `diagnose-api.yml` | Manual | Reports API service state, redacted journal diagnostics, and SQLite directory metadata and database-file existence |
+| `ingest-reddit.yml` | Daily at 06:00 UTC or manual | Calls the secret-gated `POST /api/ingest/reddit` endpoint to start a background refresh of all registered sources |
+
+A successful ingest request confirms that the background refresh was accepted; it
+does not confirm successful ingestion from Reddit. The API deployment checks
+systemd service state, not HTTP availability or end-to-end ingestion.
 
 ### Repository secrets
 
 | Secret | Used by | Description |
 |---|---|---|
-| `ORACLE_HOST` | `deploy-api.yml` | VM public IP |
-| `ORACLE_USER` | `deploy-api.yml` | SSH user |
-| `ORACLE_SSH_KEY` | `deploy-api.yml` | Private key (PEM) |
+| `ORACLE_HOST` | `deploy-api.yml`, `diagnose-api.yml` | VM public IP |
+| `ORACLE_USER` | `deploy-api.yml`, `diagnose-api.yml` | SSH user |
+| `ORACLE_SSH_KEY` | `deploy-api.yml`, `diagnose-api.yml` | Private key (PEM) |
 | `CLOUDFLARE_API_TOKEN` | `deploy.yml` | Pages edit permissions |
 | `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare account ID |
 | `REDDIT_INGEST_SECRET` | `ingest-reddit.yml` | Shared secret for `/api/ingest/reddit` |
-| `ProductHunt__DeveloperToken` | `AiPulse.Api` | Product Hunt developer token required for Product Hunt ingestion. |
+
+Set `ProductHunt__DeveloperToken` in the API service environment on the VM. The API validates it at startup.
 
 ### VM setup (one-time)
 
 ```bash
-# Install .NET 8 runtime
-sudo apt install -y dotnet-runtime-8.0
+# Install the ASP.NET Core 8 runtime (framework-dependent API deployment)
+sudo apt install -y aspnetcore-runtime-8.0
 
 # Create app directory
 sudo mkdir -p /opt/ai-pulse/app
@@ -234,12 +240,17 @@ systemd creates `/var/lib/ai-pulse/` and assigns ownership to the service's conf
 user and group (root for the unit above). The directory survives service restarts
 and replacement of `/opt/ai-pulse/app`.
 
-No one-time server setup or data migration is required for an existing deployment:
-the next deployment installs the drop-in and creates fresh databases automatically.
-The existing service and deployment user's sudo access are still required. Any
-explicit `ConnectionStrings__DefaultConnection` or
-`ConnectionStrings__HangfireConnection` service overrides take precedence over the
-JSON configuration and must use the new paths if present.
+The first deployment using these paths creates fresh databases in
+`/var/lib/ai-pulse/`. It does not migrate databases from `/opt/ai-pulse/app`,
+which the deployment replaces. Back up any existing databases before that
+first deployment if their data must be retained. The workflow requires an existing
+`ai-pulse-api` service and sudo access for the SSH deploy user.
+
+If `ConnectionStrings__DefaultConnection` or `ConnectionStrings__HangfireConnection`
+is set in the service environment, it overrides the corresponding JSON connection
+string. Use a SQLite connection string with an absolute `DataSource` under
+`/var/lib/ai-pulse/`. Hangfire receives the `DataSource` filename parsed from its
+connection string.
 
 ---
 

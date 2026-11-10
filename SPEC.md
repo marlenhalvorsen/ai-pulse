@@ -73,7 +73,7 @@ AiPulse/
       GitHubTrendingFetcher.cs
       ProductHuntFetcher.cs
       PodcastFetcher.cs
-      RedditFetcher.cs          # present but not reliable in production
+      RedditFetcher.cs          # refresh job fetcher using the configured Cloudflare Worker proxy
     Persistence/
       AppDbContext.cs
       ContentRepository.cs
@@ -158,7 +158,7 @@ AiPulse/
 
 ### 🔵 Should Have
 
-- RedditFetcher reliable in production (currently present but bypassed due to datacenter IP blocking)
+- Validate reliable end-to-end Reddit ingestion in production.
 - Keyword search across trending item titles
 - Filter by time window: Last 24h / Last 7 days
 - Health check endpoint: `GET /health`
@@ -198,7 +198,7 @@ AiPulse/
 
 | Source | Status | Reason |
 |---|---|---|
-| Reddit | Present, not reliable in production | Reddit blocks requests from datacenter IPs; Cloudflare Worker proxy in place but not fully validated |
+| Reddit | Enabled in the refresh job; hidden from the sidebar | `RedditFetcher` uses `https://reddit-proxy.marlenhalvorsen.workers.dev`. Production ingestion reliability remains unverified. |
 
 ### TrendScore Formula
 
@@ -256,7 +256,9 @@ Returns trending items filtered to a single source.
 
 ### `POST /api/ingest/reddit`
 
-Triggers `TrendRefreshJob` as a background task. Called by the daily GitHub Actions workflow.
+Triggers `TrendRefreshJob` as a background task for all registered sources, including
+Reddit. Called by the daily GitHub Actions workflow. A `202 Accepted` response
+confirms acceptance of the refresh request, not successful ingestion from Reddit.
 
 - Auth: `X-Ingest-Secret` request header, value must match `RedditIngest__Secret` env var on server
 - Returns `202 Accepted` immediately; job runs in background
@@ -276,15 +278,41 @@ Browser → Cloudflare Pages (marlenhalvorsen.dev)
                                                SQLite + Hangfire (SQLite-backed)
 ```
 
+On pushes to `main`, GitHub Actions publishes `AiPulse.Client` with
+`dotnet publish AiPulse.Client -c Release -o publish`, verifies `index.html` and
+`_framework/blazor.webassembly.js` under `publish/wwwroot`, and uploads that
+directory to the `ai-pulse` Cloudflare Pages project on branch `main` using
+Wrangler `4.158.0` on Node.js `22`. The workflow uses `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`.
+
+The API is published as a framework-dependent ASP.NET Core 8 app and requires
+`aspnetcore-runtime-8.0` on the VM. The API workflow uploads the release to
+`/opt/ai-pulse/staging` and installs
+`/etc/systemd/system/ai-pulse-api.service.d/storage.conf`. The drop-in selects
+`Production` and sets `StateDirectory=ai-pulse` with mode `0750`. The workflow
+stops `ai-pulse-api`, replaces `/opt/ai-pulse/app` with the staged release, starts
+the service, and checks that systemd reports it active. This checks service state,
+not HTTP availability or end-to-end ingestion. An existing `ai-pulse-api` service
+and sudo access for the SSH deploy user are required.
+
+`AiPulse.Api/appsettings.Production.json` puts the application and Hangfire databases
+at `/var/lib/ai-pulse/aipulse.db` and `/var/lib/ai-pulse/hangfire.db`. These files
+survive app-directory replacement. The first deployment using these paths creates
+fresh databases without migrating the old ones from `/opt/ai-pulse/app`. Back up
+any existing databases before that first deployment if their data must be retained.
+Local development uses the relative filenames `aipulse.db` and `hangfire.db`.
+Hangfire receives the `DataSource` filename parsed from its connection string.
+
 ### GitHub Actions Workflows
 
 | Workflow | Trigger | Action |
 |---|---|---|
-| `ci.yml` | Push / PR to `main` | `dotnet build` + `dotnet test` |
-| `tests.yml` | Push / PR to `main` | Full test suite |
-| `deploy-api.yml` | Push to `main` | `dotnet publish` → SCP to VM → systemd restart |
-| `deploy.yml` | Push to `main` | `dotnet publish AiPulse.Client` → Cloudflare Pages |
-| `ingest-reddit.yml` | Daily 06:00 UTC + manual | `POST /api/ingest/reddit` |
+| `ci.yml` | Push to `main` or `feature/**`, or PR targeting `main` | Restores, builds, and tests in Release |
+| `tests.yml` | Push to `main` or `feature/**`, or PR targeting `main` | Restores, builds, and runs the full test suite in Release |
+| `deploy-api.yml` | Push to `main` | Publishes and stages the API, installs the systemd storage drop-in, swaps the release, and checks service state |
+| `deploy.yml` | Push to `main` | Publishes the Blazor client, checks the static output, and deploys it to Cloudflare Pages with Wrangler |
+| `diagnose-api.yml` | Manual | Reports API service state, redacted journal diagnostics, and SQLite directory metadata and database-file existence |
+| `ingest-reddit.yml` | Daily at 06:00 UTC or manual | Calls the secret-gated `POST /api/ingest/reddit` endpoint to start a background refresh of all registered sources |
 
 ### Environment Variables (VM)
 
@@ -294,9 +322,13 @@ Browser → Cloudflare Pages (marlenhalvorsen.dev)
 | `ASPNETCORE_URLS` | `http://localhost:5000` |
 | `RedditIngest__Secret` | Shared secret for `/api/ingest/reddit` |
 | `ProductHunt__DeveloperToken` | Product Hunt Developer API token (required for startup) |
-| `ConnectionStrings__DefaultConnection` | Path to SQLite app DB |
-| `ConnectionStrings__HangfireConnection` | Path to SQLite Hangfire DB |
+| `ConnectionStrings__DefaultConnection` | Optional SQLite connection-string override. Production default is `DataSource=/var/lib/ai-pulse/aipulse.db`. |
+| `ConnectionStrings__HangfireConnection` | Optional SQLite connection-string override. Production default is `DataSource=/var/lib/ai-pulse/hangfire.db`. |
 
+Set these variables in the API service environment on the VM. The API validates
+`ProductHunt__DeveloperToken` at startup. Connection-string environment overrides
+take precedence over JSON configuration; use an absolute SQLite `DataSource` under
+`/var/lib/ai-pulse/` for each override.
 
 ---
 
