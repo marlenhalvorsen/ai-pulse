@@ -158,7 +158,7 @@ AiPulse/
 
 ### 🔵 Should Have
 
-- Validate reliable end-to-end Reddit ingestion in production.
+- Restore Reddit ingestion in production; the integration is retained as technical debt.
 - Keyword search across trending item titles
 - Filter by time window: Last 24h / Last 7 days
 - Health check endpoint: `GET /health`
@@ -198,7 +198,7 @@ AiPulse/
 
 | Source | Status | Reason |
 |---|---|---|
-| Reddit | Enabled in the refresh job; hidden from the sidebar | `RedditFetcher` uses `https://reddit-proxy.marlenhalvorsen.workers.dev`. Production ingestion reliability remains unverified. |
+| Reddit | Ingestion currently does not work in production; hidden from the sidebar | `RedditFetcher` is implemented and registered in the refresh job, using the configured Cloudflare Worker proxy at `https://reddit-proxy.marlenhalvorsen.workers.dev`. The integration is intentionally retained as technical debt. |
 
 ### TrendScore Formula
 
@@ -297,9 +297,10 @@ and sudo access for the SSH deploy user are required.
 
 `AiPulse.Api/appsettings.Production.json` puts the application and Hangfire databases
 at `/var/lib/ai-pulse/aipulse.db` and `/var/lib/ai-pulse/hangfire.db`. These files
-survive app-directory replacement. The first deployment using these paths creates
-fresh databases without migrating the old ones from `/opt/ai-pulse/app`. Back up
-any existing databases before that first deployment if their data must be retained.
+survive app-directory replacement. The move to persistent storage intentionally
+starts with fresh databases in `/var/lib/ai-pulse/`. Previous SQLite data from
+`/opt/ai-pulse/app` is not migrated by design; the deployment replaces that app
+directory.
 Local development uses the relative filenames `aipulse.db` and `hangfire.db`.
 Hangfire receives the `DataSource` filename parsed from its connection string.
 

@@ -28,10 +28,10 @@ Claude Code's behaviour.
 
 ## Reflections
 
-Direct requests to Reddit from datacenter IPs have been unreliable. AI Pulse keeps
-`RedditFetcher` in the refresh job and sends its requests through a Cloudflare
-Worker proxy. Reddit is hidden from the sidebar, and production ingestion
-reliability remains unverified.
+`RedditFetcher` is implemented and registered in the refresh job, using the
+configured Cloudflare Worker proxy. Reddit ingestion currently does not work in
+production. The integration is intentionally retained as technical debt, and
+Reddit is hidden from the sidebar.
 
 Looking back, the layered architecture is arguably over-engineered for a project of this size. For a solo hobby project with a handful of data sources, a simpler structure would have been sufficient. But the architecture was chosen deliberately — to practice designing a system that can grow, and to give the TDD pipeline a meaningful structure to enforce. The tradeoff was worth it for the learning, but I would reach for something leaner in a purely production-first context.
 
@@ -240,11 +240,10 @@ systemd creates `/var/lib/ai-pulse/` and assigns ownership to the service's conf
 user and group (root for the unit above). The directory survives service restarts
 and replacement of `/opt/ai-pulse/app`.
 
-The first deployment using these paths creates fresh databases in
-`/var/lib/ai-pulse/`. It does not migrate databases from `/opt/ai-pulse/app`,
-which the deployment replaces. Back up any existing databases before that
-first deployment if their data must be retained. The workflow requires an existing
-`ai-pulse-api` service and sudo access for the SSH deploy user.
+The move to persistent storage intentionally starts with fresh databases in
+`/var/lib/ai-pulse/`. Previous SQLite data from `/opt/ai-pulse/app` is not migrated
+by design; the deployment replaces that app directory. The workflow requires an
+existing `ai-pulse-api` service and sudo access for the SSH deploy user.
 
 If `ConnectionStrings__DefaultConnection` or `ConnectionStrings__HangfireConnection`
 is set in the service environment, it overrides the corresponding JSON connection
