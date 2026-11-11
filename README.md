@@ -25,6 +25,13 @@ See [CLAUDE.md](CLAUDE.md) for the architectural contract I wrote governing
 Claude Code's behaviour.
 
 ---
+### AI-Assisted Development
+
+AI Pulse started as an experiment in building software with Claude Code. I defined the architecture, specifications, and development workflow, while Claude Code handled much of the implementation.
+
+As the project evolved, I also began using OpenAI Codex for maintenance, infrastructure improvements, and documentation updates, including changes to database persistence and deployment configuration.
+
+The tools may change, but my role remains the same: making architectural decisions, reviewing changes, and taking responsibility for what gets merged and deployed.
 
 ## Reflections
 
